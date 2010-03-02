@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 from scipy import *
+from pylab import *
+from os import mkdir, path, remove, listdir
 import scipy.optimize
-import pickle
 import glob
+import pickle
 import vanDerWaals
 import ErrorClasses
 import GibbsClasses
@@ -13,76 +15,156 @@ import PhaseStability
 class Mixture:
         
     def __init__(self, Compounds, MixtureDataDir, PureDataDir):
-
-        Data ={}
+        
         MixtureName = Compounds[0]
-        self.AdachiLuParam ={}
         self.Compounds = Compounds
-        for Compound in Compounds:
-            PureCompFile = glob.glob(PureDataDir+'/'+Compound+'.dat')
-            Data[Compound] = pickle.load(file(PureCompFile[0]))
-            if not(Compound == Compounds[0] or Compound == Compounds[-1]):
-                MixtureName = MixtureName+'-'+Compound
-            if Compound == Compounds[-1]:
-                MixtureName = MixtureName+'-'+Compound
-        self.Name = MixtureName
-        self.Data = Data
-        MixtureFileName = MixtureDataDir+'/'+MixtureName + '.dat'
-
-        MixtureFile = glob.glob(MixtureFileName)
-        self.M = pickle.load(file(MixtureFile[0]))
-        [Slope, VPData] = vanDerWaals.MainSlope(Data, Compounds)
-        for Compound in Compounds:
-            self.AdachiLuParam[Compound] = Slope[Compound]['BestFit']
+        self.Data = dict((Compound, pickle.load(file(PureDataDir+'/'+Compound+'.dat'))) for Compound in Compounds)
+        self.Name = '-'.join(Compounds)
+        self.M = pickle.load(file(MixtureDataDir+'/'+self.Name + '.dat'))
+        [Slope, VPData] = vanDerWaals.MainSlope(self.Data, Compounds)
+        self.AdachiLuParam = dict((Compound,  Slope[Compound]['BestFit']) for Compound in Compounds)
     
-    def OptFunction(self, params, Model, Actual, T, c):
+    def Plotter(self, BestParams, Model, Fit, ModelInstance, Actual, c, T):
+    
+        deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
+        TangentComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
+        TangentGibbs = [ModelInstance.deltaGmix(x, T, c, self.M)for x in TangentComps]
+        AbsError = ErrorClasses.SumAbs(TangentComps, Actual).Error()
+        matplotlib.rc('text', usetex = True)
+        fig = matplotlib.pyplot.figure()
+        matplotlib.pyplot.plot(arange(0.001, 1, 0.001), deltaGibbsmix, 'b-')
+        matplotlib.pyplot.plot(TangentComps, TangentGibbs, 'r-')
+        matplotlib.pyplot.xlabel(r'Mole Fraction of '+self.Compounds[0].capitalize(), fontsize = 14)
+        matplotlib.pyplot.ylabel(r'$\displaystyle\frac{\Delta G_{mix}}{RT}$', fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
+        ax = fig.add_axes([0,0,1,1])
+        ax.text(0,0, 'Model: %s, Params: %s, Abslote Error(sum): %4.4e'%(Model, str(around(BestParams, 2)),AbsError), fontsize=12, transform=ax.transAxes)
+        ax.set_axis_off()
+        #show()
+        savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
+        matplotlib.pyplot.close()
+    
+    def OptFunctionIndvT(self, params, Model, Actual, T, c):
         
         ModelInstance = getattr(GibbsClasses, Model)(params)        
         Predicted = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
         Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
 
         return Error
-    def NonEqConstr(self, params, Model, Actual, T, c):
+  
+    def NonEqConstrIndvT(self, params, Model, Actual, T, c):
         
         ModelInstance = getattr(GibbsClasses, Model)(params) 
         deltaGibbsMixTest = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         TangentTestComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
-        TangentTest = array([((ModelInstance.FirstDerivative(TangentTestComps[0], T, c, self.M))*(x - TangentTestComps[0])+ ModelInstance.deltaGmix(TangentTestComps[0], T, c, self.M))-ModelInstance.deltaGmix(x, T, c, self.M) for x in linspace(TangentTestComps[0], TangentTestComps[1],1000, True, False)])
+        TangentTest = array([((ModelInstance.FirstDerivative(TangentTestComps[0], T, c, self.M))*(x - TangentTestComps[0])+ ModelInstance.deltaGmix(TangentTestComps[0], T, c, self.M))-ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         DistinctTest = -1*array([abs(TangentTestComps[0]-TangentTestComps[1])+0.01])
-        print size( TangentTest)
+       
         return -1*append(append(deltaGibbsMixTest, TangentTest), DistinctTest)
-        
-    def BestFitParams(self, Model, InitParams, Bounds):
 
-       # for T in self.M['T']:
-        R = 8.314
-       # T = self.M['T']
-        T = 303.0
-        Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0]))])
-        CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
-        c = [CompC[Compound] for Compound in Compounds]
-            
-        params  = scipy.optimize.fmin_slsqp(self.OptFunction, InitParams,[], None, [], self.NonEqConstr, Bounds, None, None, None, (Model, Actual, T, c), 500, 10e-5, 1, 0, 10e-7)
-        ModelInstance = getattr(GibbsClasses, Model)(params) 
-        print PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
+    def BestFitParamsIndvT(self, Model, InitParams, Bounds):
+        Fit = 'IndividualT'
+        if not(path.exists('Results/'+self.Name+'/'+Model)):
+            mkdir('Results/'+self.Name+'/'+Model)        
+        if path.exists('Results/'+self.Name+'/'+Model+'/'+Fit):
+            fileList = listdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+            for fn in fileList: 
+                remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
+        else:
+            mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
         
+
+       #R = 8.314
+        
+        for T in self.M['T']:
+                    
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            c = [CompC[Compound] for Compound in self.Compounds]
+            
+            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], self.NonEqConstrIndvT, Bounds, None, None, None, (Model, Actual, T, c), 500, 10e-8, 1, 1, 10e-8)
+            InitParams = params
+            ModelInstance = getattr(GibbsClasses, Model)(params)      
+            self.Plotter(params, Model, Fit, ModelInstance, Actual, c, T)
+            
         return params
-            
-            
-        
+    
+    def OptFunctionOvrlT(self, params, Model,R):
 
+        ModelInstance = getattr(GibbsClasses, Model)(params) 
+        Errors = zeros(size(self.M['T']))
+        
+        for T in self.M['T']:
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            c = [CompC[Compound] for Compound in Compounds]
+            Predicted = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
+            Errors[where(self.M['T']== T)] = ErrorClasses.SumAbs(Predicted ,Actual).Error()
+        
+        OvrlError = sum(Errors**2)
+
+        return OvrlError
+
+    def NonEqConstrOvrlT(self, params, Model,R):
+        
+        ModelInstance = getattr(GibbsClasses, Model)(params) 
+        Test = array([])
+        
+        for T in self.M['T']:
+            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            c = [CompC[Compound] for Compound in Compounds]
+            deltaGibbsMixTest = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
+            TangentTestComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
+            TangentTest = array([((ModelInstance.FirstDerivative(TangentTestComps[0], T, c, self.M))*(x - TangentTestComps[0])+ ModelInstance.deltaGmix(TangentTestComps[0], T, c, self.M))-ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
+            DistinctTest = -1*array([abs(TangentTestComps[0]-TangentTestComps[1])+0.01])
+            Test = append(Test, append(append(deltaGibbsMixTest, TangentTest), DistinctTest))
+       
+        return -1*Test
+        
+    def BestFitParamsOvrlT(self, Model, InitParams, Bounds):
+        
+        Fit = 'OverallT'
+        if not(path.exists('Results/'+self.Name+'/'+Model)):
+            mkdir('Results/'+self.Name+'/'+Model)        
+        if path.exists('Results/'+self.Name+'/'+Model+'/'+Fit):
+            fileList = listdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+            for fn in fileList: 
+                remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
+        else:
+            mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+
+        [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlT, InitParams,[], None, [], self.NonEqConstrOvrlT, Bounds, None, None, None, (Model, R), 100, 10e-4, 1, 1, 10e-2)
+       
+        ModelInstance = getattr(GibbsClasses, Model)(params)      
+        for T in self.M['T']:
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            c = [CompC[Compound] for Compound in self.Compounds]
+            self.Plotter(params, Model, Fit, ModelInstance, Actual, c, T)
+
+        return params
+
+    
+       
 
 ##=============================================================##
-#Models = ('DWPM', 'NRTL', 'UNIQUAC')
-Model = 'DWPM'
+Models = ('DWPM', 'NRTL', 'UNIQUAC')
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Compounds = ('methanenitro', 'nonanol')
-InitParams = (-30.6,-200.5, 0.5)
-Bounds = [(-500, 0), (-500, 0), (0.5, 0.5)]
+Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 800), (-800, 800)), ((-800, 800), (-800, 800))]
+InitParams = [(-29.0,-200.0, 0.5), (700.0, 173.3), (35.00, 370.00)]
+Model = Models[0]
+R = 8.314
+
+if not(path.exists('Results/')):
+    mkdir('Results/')        
 
 a = Mixture(Compounds, MixtureDataDir, PureDataDir)
-a.BestFitParams(Model, InitParams, Bounds)
+if not(path.exists('Results/'+a.Name)):
+    mkdir('Results/'+a.Name)
+a.BestFitParamsIndvT(Model, InitParams[0], Bounds[0])
+a.BestFitParamsOvrlT(Model, InitParams[0], Bounds[0])
 
 
 
