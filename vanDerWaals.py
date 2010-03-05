@@ -5,21 +5,6 @@ import scipy.optimize
 import pickle
 import glob
 
-#=========================#Functions#==============================#
-
-def GenVPDataMeth1(Tint, C):
-    TRange = linspace(C['Tmin'],C['Tmax'],Tint)
-    xRange =[1 - (Tpoint/C['Tc']*1.0) for Tpoint in TRange]
-    logPvpRange =[(1/(1-x))*(C['VPa']*x + C['VPb']*x**1.5 + C['VPc']*x**3 + C['VPd']*x**6) for x in xRange]
-    PexpRange = [100*C['Pc']*exp(logPvp) for logPvp in logPvpRange]
-    return array([TRange, PexpRange])
-
-def GenVPDataMeth3(Tint, C):
-    TRange = linspace(C['Tmin'],C['Tmax'],Tint)
-    logPvpRange =[C['VPa'] - C['VPb']/(Tpoint + C['VPc']) for Tpoint in TRange]
-    PexpRange = [100*exp(logPvp) for logPvp in logPvpRange]
-    return array([TRange, PexpRange])
-
 def vdWaals(v, bvdW,a, T, R):
     PvdW = (R*T/(v - bvdW)) - a/(v**2)
     return PvdW
@@ -95,34 +80,58 @@ def sqrError(m, Tc, Pc, Texp, Pexp, R,Tint):
    
     return ErrorArea
     
-#=========================#MainCode#===============================#
 
-def MainSlope(Data, Compounds):
-    Tint = 500
-    R = 8.314
-    VPData = {}
-    Slope ={}
-    for Compound in Compounds:
-        C = Data[Compound]
-        if C['Method'] == 1:
-            VPData[Compound] = GenVPDataMeth1(Tint,C)
-        elif C['Method'] == 3:
-            VPData[Compound] = GenVPDataMeth3(Tint,C)
-        Slope[Compound]={}
-        Slope[Compound]['Range']= [scipy.optimize.fminbound(mError,0.,5.,(C['Tc'],C['Pc'], T, interp(T,VPData[Compound][0],VPData[Compound][1]),R),1e-4,500,0,0) for T in VPData[Compound][0]]
-        Slope[Compound]['BestFit']= scipy.optimize.fminbound(sqrError,min(Slope[Compound]['Range']),max(Slope[Compound]['Range']),(C['Tc'],C['Pc'], VPData[Compound][0],VPData[Compound][1],R,Tint),1e-4,500,0,0) 
+class VPData:
+    
+    def __init__(self, C, Tint):
+        self.C = C
+        self.TRange = linspace(C['Tmin'], C['Tmax'], Tint)
+
+class Method1(VPData):
+    
+    def Generate(self):
+        xRange =[1 - (Tpoint/self.C['Tc']*1.0) for Tpoint in self.TRange]
+        logPvpRange =[(1/(1-x))*(self.C['VPa']*x + self.C['VPb']*x**1.5 + self.C['VPc']*x**3 + self.C['VPd']*x**6) for x in xRange]
+        PexpRange = [100*self.C['Pc']*exp(logPvp) for logPvp in logPvpRange]
         
-    return [Slope, VPData]
+        return array([self.TRange, PexpRange])
 
+class Method3(VPData):
+    
+    def Generate(self):
+        logPvpRange =[self.C['VPa'] - self.C['VPb']/(Tpoint + self.C['VPc']) for Tpoint in self.TRange]
+        PexpRange = [100*exp(logPvp) for logPvp in logPvpRange]
+        
+        return array([self.TRange, PexpRange])
 
+class Slope:
+      
+    def __init__(self, Data, Compounds):
+        self.Compounds = Compounds
+        self.Data = Data
+        
 
-def CompC(Compounds, Data, Slopes, T, R):
-    CompC = {}
-    for Compound in Compounds:
-        ac_vdW  = (27*R**2*Data[Compound]['Tc']**2)/(64*Data[Compound]['Pc']*100)
-        b_vdW   = (R*Data[Compound]['Tc'])/(8*Data[Compound]['Pc']*100)
-        Tr  = T/Data[Compound]['Tc']
-        a = ac_vdW*exp(Slopes[Compound]*(1-Tr))
-        CompC[Compound] = -1*(ac_vdW/(R*T*b_vdW))*exp(Slopes[Compound]*(1-(T/Data[Compound]['Tc'])))
+        
+    def BestFit(self):
+        Tint = 500
+        R = 8.314
+        self.VPData ={}
+        self.Slope = dict((Compound, {}) for Compound in self.Compounds)
+        for Compound in self.Compounds:
+            C = self.Data[Compound]
+            self.VPData[Compound] = eval('Method'+ str(C['Method'])+'(C, Tint)'+'.Generate()')
+            self.Slope[Compound]['Range']= [scipy.optimize.fminbound(mError,0.,5.,(C['Tc'],C['Pc'], T, interp(T,self.VPData[Compound][0],self.VPData[Compound][1]),R),1e-4,500,0,0) for T in self.VPData[Compound][0]]
+            self.Slope[Compound]['BestFit']= scipy.optimize.fminbound(sqrError,min(self.Slope[Compound]['Range']),max(self.Slope[Compound]['Range']),(C['Tc'],C['Pc'], self.VPData[Compound][0],self.VPData[Compound][1],R,Tint),1e-4,500,0,0) 
+        
+        return [self.Slope, self.VPData]
 
-    return CompC
+    def CompC(self, T):
+        R = 8.314
+        CompC = {}
+        for Compound in self.Compounds:
+            ac_vdW  = (27*R**2*self.Data[Compound]['Tc']**2)/(64*self.Data[Compound]['Pc']*100)
+            b_vdW   = (R*self.Data[Compound]['Tc'])/(8*self.Data[Compound]['Pc']*100)
+            Tr  = T/self.Data[Compound]['Tc']
+            CompC[Compound] = -1*(ac_vdW/(R*T*b_vdW))*exp(self.Slope[Compound]['BestFit']*(1-(T/self.Data[Compound]['Tc'])))
+
+        return CompC

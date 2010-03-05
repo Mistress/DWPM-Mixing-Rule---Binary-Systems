@@ -5,7 +5,7 @@ from pylab import *
 from os import mkdir, path, remove, listdir
 import scipy.optimize
 import glob
-import pickle
+import tables
 import vanDerWaals
 import ErrorClasses
 import GibbsClasses
@@ -18,10 +18,19 @@ class Mixture:
         
         MixtureName = Compounds[0]
         self.Compounds = Compounds
-        self.Data = dict((Compound, pickle.load(file(PureDataDir+'/'+Compound+'.dat'))) for Compound in Compounds)
+        self.Data =dict((Compound, {}) for Compound in Compounds)
+        for Compound in Compounds:
+            h5file = tables.openFile(PureDataDir+'/'+Compound+'.h5', 'r')
+            properties = h5file.root.Properties
+            self.Data[Compound] = dict(((field, row[field]) for row in properties.iterrows() for field in properties.colnames))        
         self.Name = '-'.join(Compounds)
-        self.M = pickle.load(file(MixtureDataDir+'/'+self.Name + '.dat'))
-        [Slope, VPData] = vanDerWaals.MainSlope(self.Data, Compounds)
+        h5file = tables.openFile(MixtureDataDir+'/'+ self.Name +'.h5', 'r')
+        self.M = dict(Compounds = h5file.root.Compounds.read(), ExpComp = h5file.root.ExperimentalData.ExpComp.read(), T = h5file.root.ExperimentalData.T.read())
+        for row in h5file.root.UNIQUACParams.iterrows():
+            for field in h5file.root.UNIQUACParams.colnames:
+                self.M[field] = row[field]
+        self.vdWaalsInstance = vanDerWaals.Slope(self.Data, Compounds)
+        [Slope, VPData] = self.vdWaalsInstance.BestFit()
         self.AdachiLuParam = dict((Compound,  Slope[Compound]['BestFit']) for Compound in Compounds)
     
     def Plotter(self, BestParams, Model, Fit, ModelInstance, Actual, c, T):
@@ -73,13 +82,10 @@ class Mixture:
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
         
-
-       #R = 8.314
-        
         for T in self.M['T']:
                     
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
             [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], self.NonEqConstrIndvT, Bounds, None, None, None, (Model, Actual, T, c), 500, 10e-8, 1, 1, 10e-8)
@@ -96,7 +102,7 @@ class Mixture:
         
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
             Predicted = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
             Errors[where(self.M['T']== T)] = ErrorClasses.SumAbs(Predicted ,Actual).Error()
@@ -111,7 +117,7 @@ class Mixture:
         Test = array([])
         
         for T in self.M['T']:
-            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
             deltaGibbsMixTest = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
             TangentTestComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
@@ -138,7 +144,7 @@ class Mixture:
         ModelInstance = getattr(GibbsClasses, Model)(params)      
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = vanDerWaals.CompC(self.Compounds, self.Data, self.AdachiLuParam, T, R)
+            CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             self.Plotter(params, Model, Fit, ModelInstance, Actual, c, T)
 
