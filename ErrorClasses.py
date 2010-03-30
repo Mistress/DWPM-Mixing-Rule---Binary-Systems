@@ -13,15 +13,28 @@ class SumSquare(ErrorMeasure):
         SqrError = sum((self.Predicted - self.Actual)**2)
         return SqrError
 
+class SquareError(ErrorMeasure):
+    def Error(self):
+        SquareError = (self.Predicted - self.Actual)**2
+        return SquareError
+
 class SumAbs(ErrorMeasure):
     def Error(self):
         AbsoluteError = sum(abs(self.Predicted - self.Actual))
         return AbsoluteError
 
+class AbsError(ErrorMeasure):
+    def Error(self):
+        AbsError = abs(self.Predicted - self.Actual)
+
 class SumRelative(ErrorMeasure):
     def Error(self):
-        RelativeError = sum((self.Predicted - self.Actual)/self.Actual)
+        RelativeError = sum(abs(self.Predicted - self.Actual)/self.Actual)
         return RelativeError
+
+class RelError(ErrorMeasure):
+    def Error(self):
+        RelError = abs(self.Predicted - self.Actual)/self.Actual
             
 
 
