@@ -72,38 +72,7 @@ class Mixture:
         savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
                    
-        if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+Fit+'/'+self.Name +'.h5')):
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
-            if Model=='DWPM':                                             
-                table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
-            else:
-                table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
-
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-
-            table.row.append()
-            table.flush()
-            h5file.close()
-        else:
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'r+')
-            table = h5file.root.Outputs
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-            
-            table.row.append()
-            table.flush()
-            h5file.close()
-
-        
+              
             
            
     def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c):
@@ -201,43 +170,43 @@ class Mixture:
        
 
 ##=============================================================##
-Models = ('DWPM', 'NRTL', 'UNIQUAC')
-ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
-MixtureDataDir = 'Data/Mixtures'
-PureDataDir = 'Data/PureComps'
-Compounds = ('1-butanol', 'water')
-Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 3000), (-800, 3000)), ((-800, 3000), (-800, 3000))]
-InitParams =[(-200.0,-25.0, 0.5), (-250.0, 1500.0), (-20, 300.00)]
-R = 8.314
+#Models = ('DWPM', 'NRTL', 'UNIQUAC')
+#ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
+#MixtureDataDir = 'Data/Mixtures'
+#PureDataDir = 'Data/PureComps'
+#Compounds = ('1-butanol', 'water')
+#Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 3000), (-800, 3000)), ((-800, 3000), (-800, 3000))]
+#InitParams =[(-200.0,-25.0, 0.5), (-250.0, 1500.0), (-20, 300.00)]
+#R = 8.314
 
-if not(path.exists('Results/')):
-    mkdir('Results/')   
+#if not(path.exists('Results/')):
+#    mkdir('Results/')   
 
 
-Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)     
-if not(path.exists('Results/'+Optimization.Name)):
-        mkdir('Results/'+Optimization.Name)
+#Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)     
+#if not(path.exists('Results/'+Optimization.Name)):
+#        mkdir('Results/'+Optimization.Name)
 
-for i in arange(size(Models)):  
-    Name = '-'.join(Compounds)
-    if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
-        remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
-    
-    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i])
-    
-    h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
-    PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-    PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-    PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-    h5file.close()
-    matplotlib.rc('text', usetex = True)
-    fig = matplotlib.pyplot.figure()
-    matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-    matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-    matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-    matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-    savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
-    matplotlib.pyplot.close()
+#for i in arange(size(Models)):  
+#    Name = '-'.join(Compounds)
+#    if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
+#        remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
+#    
+#    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i])
+#    
+#    h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
+#    PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+#    PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+#    PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+#    h5file.close()
+#    matplotlib.rc('text', usetex = True)
+#    fig = matplotlib.pyplot.figure()
+#    matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
+#    matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
+#    matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+#    matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
+#    savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
+#    matplotlib.pyplot.close()
     
    # if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
    #     remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
