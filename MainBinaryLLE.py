@@ -40,28 +40,30 @@ class Mixture:
             h5file = tables.openFile(PureDataDir+'/'+Compound+'.h5', 'r')
             properties = h5file.root.Properties
             self.Data[Compound] = dict(((field, row[field]) for row in properties.iterrows() for field in properties.colnames))        
+            h5file.close()
         self.Name = '-'.join(Compounds)
         h5file = tables.openFile(MixtureDataDir+'/'+ self.Name +'.h5', 'r')
-        self.M = dict(Compounds = h5file.root.Compounds.read(), ExpComp = h5file.root.ExperimentalData.TielineData.ExpComp.read(), T =h5file.root.ExperimentalData.TielineData.T.read())
+        self.M = dict(Compounds = h5file.root.Compounds.read(), ExpComp = h5file.root.ExperimentalData.T_CompData.ExpComp.read(), T =h5file.root.ExperimentalData.T_CompData.T.read())
         for row in h5file.root.UNIQUACParams.iterrows():
             for field in h5file.root.UNIQUACParams.colnames:
                 self.M[field] = row[field]
         self.vdWaalsInstance = vanDerWaals.Slope(self.Data, Compounds)
         [Slope, VPData] = self.vdWaalsInstance.BestFit()
         self.AdachiLuParam = dict((Compound,  Slope[Compound]['BestFit']) for Compound in Compounds)
+        h5file.close()
     
     def Plotter(self, BestParams, Model, Fit, ModelInstance, Actual, c, T):
         print BestParams
         print Model
     
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
+        ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
         TangentComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
         TangentGibbs = [ModelInstance.deltaGmix(x, T, c, self.M)for x in TangentComps]
         AbsError = ErrorClasses.SumAbs(TangentComps, Actual).Error()
         matplotlib.rc('text', usetex = True)
         fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(arange(0.001, 1, 0.001), deltaGibbsmix, 'b-')
-        matplotlib.pyplot.plot(TangentComps, TangentGibbs, 'r-')
+        matplotlib.pyplot.plot(arange(0.001, 1, 0.001), deltaGibbsmix, 'b-',TangentComps, TangentGibbs, 'r-', Actual, ActualPlot, 'ko')
         matplotlib.pyplot.xlabel(r'Mole Fraction of '+self.Compounds[0].capitalize(), fontsize = 14)
         matplotlib.pyplot.ylabel(r'$\displaystyle\frac{\Delta G_{mix}}{RT}$', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
