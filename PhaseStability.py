@@ -5,22 +5,22 @@ import scipy.optimize
 
 def Tieline(x, ModelInstance, T, c, M):
             slope = (ModelInstance.deltaGmix(x[0], T, c, M) - ModelInstance.deltaGmix(x[1], T, c, M))/(x[0]-x[1])
-            return slope
+            Tangent = slope - ModelInstance.FirstDerivative(x[0], T, c, M)
+            return array([Tangent])
         
 def System(x, ModelInstance, T, c, M):
             SlopeGmix = ModelInstance.FirstDerivative(x[0], T, c, M)-ModelInstance.FirstDerivative(x[1], T, c, M)
-            Tangent = Tieline(x, ModelInstance, T, c, M)-ModelInstance.FirstDerivative(x[0], T, c, M)
-            system = append(SlopeGmix, Tangent)
-
-            return system
+            return SlopeGmix**2
 
 #===================================================================
        
 def CalcPhaseStability(ModelInstance, T, c, M):
-    xo = array([0.01, 0.99])
-    Pred_x_eq = scipy.optimize.fsolve(System, xo,(ModelInstance, T, c, M), None, 0, 0, 10**-4, 0, None, 0.0, 100, None,True)
-  
-    return Pred_x_eq
+    xo = array([0.001,0.999])
+    bounds = [(0, 1), (0, 1)]
+
+    [Pred_x_eq, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(System, xo,[], Tieline, [], None, bounds, None, None, None, (ModelInstance, T, c, M), 1000, 10e-8, 1, 1, 10e-8)
+    
+    return (Pred_x_eq, imode, smode)
         
     
 
