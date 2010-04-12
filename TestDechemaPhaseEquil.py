@@ -15,7 +15,7 @@ PureDataDir = 'Data/PureComps'
 R = 8.314
 
 for file in listdir(MixtureDataDir):
-    if not(file=='1-butanol-water.h5'):
+    if file=='1-butanol-water.h5':
         Fit = 'Test'
         h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
         Compounds = h5file.root.Compounds.read()
