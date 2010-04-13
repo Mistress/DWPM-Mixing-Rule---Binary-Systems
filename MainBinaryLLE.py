@@ -56,7 +56,7 @@ class Mixture:
        
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
-        (TangentComps, Fvalue) = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
+        TangentComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
         TangentGibbs = [ModelInstance.deltaGmix(x, T, c, self.M)for x in TangentComps]
         AbsError = ErrorClasses.SumAbs(TangentComps, Actual).Error()
         matplotlib.rc('text', usetex = True)
@@ -66,13 +66,13 @@ class Mixture:
         matplotlib.pyplot.ylabel(r'$\displaystyle\frac{\Delta G_{mix}}{RT}$', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
         ax = fig.add_axes([0,0,1,1])
-        ax.text(0,0, 'Model: %s, Params: %s, Abslote Error(sum): %4.4e, Termination: %s'%(Model, str(around(BestParams, 4)),AbsError, Fvalue), fontsize=12, transform=ax.transAxes)
+        ax.text(0,0, 'Model: %s, Params: %s, Abslote Error(sum): %4.4e'%(Model, str(around(BestParams, 4)),AbsError), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
         #show()
         savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
-        print Actual, TangentComps
-        print self.Name,Fvalue
+        print self.Name, Actual, TangentComps
+        
                    
               
             
