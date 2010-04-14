@@ -29,11 +29,11 @@ def CalcPhaseStability(ModelInstance, T, c, M):
     dtype = [('x_Pred1', float), ('x_Pred2',float), ('Equal_Slopes', float),('Tangent', float) ]
     OutArray =array([[0, 1, 100, 100]])
 
-    for x1 in arange(0, 1.05, 0.05):
-        for x2 in arange(0, 1.05, 0.05):
+    for x1 in 0.5*rand(20):
+        for x2 in 1-0.5*rand(20):
             
             xo = array([x1, x2])
-            (Pred_x_eq, infodict, ier, msg) = scipy.optimize.fsolve(System, xo,(ModelInstance, T, c, M), None, 1, 0, 10**-4, 0, None, 0.0, 100, None,True)
+            (Pred_x_eq, infodict, ier, msg) = scipy.optimize.fsolve(System, xo,(ModelInstance, T, c, M), None, 1, 0, 10**-6, 0, None, 0.0, 100, None,True)
             
             Test = NonEqConstr(Pred_x_eq, ModelInstance, T, c, M)
             if all(Test<0) and ier==1 and all(Pred_x_eq>=0) and all(Pred_x_eq<=1):
