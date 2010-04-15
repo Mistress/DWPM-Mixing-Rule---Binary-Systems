@@ -43,7 +43,7 @@ class Mixture:
             h5file.close()
         self.Name = '-'.join(Compounds)
         h5file = tables.openFile(MixtureDataDir+'/'+ self.Name +'.h5', 'r')
-        self.M = dict(Compounds = h5file.root.Compounds.read(), ExpComp = h5file.root.ExperimentalData.T_CompData.ExpComp.read(), T =h5file.root.ExperimentalData.T_CompData.T.read())
+        self.M = dict(Compounds = h5file.root.Compounds.read(), ExpComp = h5file.root.ExperimentalData.TielineData.ExpComp.read(), T =h5file.root.ExperimentalData.TielineData.T.read())
         for row in h5file.root.UNIQUACParams.iterrows():
             for field in h5file.root.UNIQUACParams.colnames:
                 self.M[field] = row[field]
@@ -71,28 +71,15 @@ class Mixture:
         #show()
         savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
-        print self.Name, Actual, TangentComps
-        
-                   
-              
-            
+        print self.Name, Actual, TangentComps         
            
     def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c):
-        
+       
         Predicted = PhaseStability.CalcPhaseStability(ModelInstance(params) , T, c, self.M)
         Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
 
         return Error
   
-    def NonEqConstrIndvT(self, params, ModelInstance, Actual, T, c):
-        
-        deltaGibbsMixTest = array([ModelInstance(params).deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
-        TangentTestComps = PhaseStability.CalcPhaseStability(ModelInstance(params), T, c, self.M)
-        TangentTest = array([((ModelInstance(params).FirstDerivative(TangentTestComps[0], T, c, self.M))*(x - TangentTestComps[0])+ ModelInstance(params).deltaGmix(TangentTestComps[0], T, c, self.M))-ModelInstance(params).deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
-        DistinctTest = -1*array([abs(TangentTestComps[0]-TangentTestComps[1])+0.01])
-       
-        return -1000*append(append(deltaGibbsMixTest, TangentTest), DistinctTest)
-
     def BestFitParamsIndvT(self,Model, ModelInstance, InitParams, Bounds):
         Fit = 'IndividualT'
         if not(path.exists('Results/'+self.Name+'/'+Model)):
@@ -110,7 +97,7 @@ class Mixture:
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
-            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], self.NonEqConstrIndvT, Bounds, None, None, None, (ModelInstance, Actual, T, c), 1000, 10e-6, 1, 1, 5)
+            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], None, Bounds, None, None, None, (ModelInstance, Actual, T, c), 1000, 1e-4, 1, 1, 1e-6)
             #InitParams = params    
             self.Plotter(params, Model, Fit, ModelInstance(params), Actual, c, T)
             
@@ -130,21 +117,6 @@ class Mixture:
         OvrlError = sum(Errors**2)
 
         return OvrlError
-
-    def NonEqConstrOvrlT(self, params, ModelInstance,R):
-        
-        Test = array([])
-        
-        for T in self.M['T']:
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
-            deltaGibbsMixTest = array([ModelInstance(params).deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
-            TangentTestComps = PhaseStability.CalcPhaseStability(ModelInstance(params), T, c, self.M)
-            TangentTest = array([((ModelInstance(params).FirstDerivative(TangentTestComps[0], T, c, self.M))*(x - TangentTestComps[0])+ ModelInstance(params).deltaGmix(TangentTestComps[0], T, c, self.M))-ModelInstance(params).deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
-            DistinctTest = -1*array([abs(TangentTestComps[0]-TangentTestComps[1])+0.01])
-            Test = append(Test, append(append(deltaGibbsMixTest, TangentTest), DistinctTest))
-       
-        return -1*Test
         
     def BestFitParamsOvrlT(self, Model, ModelInstance, InitParams, Bounds):
         
@@ -158,7 +130,7 @@ class Mixture:
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
 
-        [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlT, InitParams,[], None, [], self.NonEqConstrOvrlT, Bounds, None, None, None, (ModelInstance, R), 100, 10e-4, 1, 1, 10e-2)
+        [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlT, InitParams,[], None, [], None, Bounds, None, None, None, (ModelInstance,), 100, 10e-4, 1, 1, 10e-2)
          
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
@@ -166,49 +138,49 @@ class Mixture:
             c = [CompC[Compound] for Compound in self.Compounds]
             self.Plotter(params, Model, Fit, ModelInstance(params), Actual, c, T)
 
-        return params, 
+        return params
 
     
        
 
 ##=============================================================##
-#Models = ('DWPM', 'NRTL', 'UNIQUAC')
-#ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
-#MixtureDataDir = 'Data/Mixtures'
-#PureDataDir = 'Data/PureComps'
-#Compounds = ('1-butanol', 'water')
-#Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 3000), (-800, 3000)), ((-800, 3000), (-800, 3000))]
-#InitParams =[(-200.0,-25.0, 0.5), (-250.0, 1500.0), (-20, 300.00)]
-#R = 8.314
+Models = ('DWPM', 'NRTL', 'UNIQUAC')
+ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
+MixtureDataDir = 'Data/Mixtures'
+PureDataDir = 'Data/PureComps'
+Compounds = ('1-butanol', 'water')
+Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 3000), (-800, 3000)), ((-800, 3000), (-800, 3000))]
+InitParams =[(-200.0,-25.0, 0.5),(-250.0, 1500.0), (-20, 300.00)]
+R = 8.314
 
-#if not(path.exists('Results/')):
-#    mkdir('Results/')   
+if not(path.exists('Results/')):
+    mkdir('Results/')   
 
 
-#Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)     
-#if not(path.exists('Results/'+Optimization.Name)):
-#        mkdir('Results/'+Optimization.Name)
+Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)     
+if not(path.exists('Results/'+Optimization.Name)):
+        mkdir('Results/'+Optimization.Name)
 
-#for i in arange(size(Models)):  
-#    Name = '-'.join(Compounds)
-#    if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
-#        remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
-#    
-#    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i])
-#    
-#    h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
-#    PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-#    PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-#    PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-#    h5file.close()
-#    matplotlib.rc('text', usetex = True)
-#    fig = matplotlib.pyplot.figure()
-#    matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-#    matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-#    matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-#    matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-#    savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
-#    matplotlib.pyplot.close()
+for i in arange(size(Models)):  
+    Name = '-'.join(Compounds)
+    if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
+        remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
+    
+    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i])
+    
+    h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
+    PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+    PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+    PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+    h5file.close()
+    matplotlib.rc('text', usetex = True)
+    fig = matplotlib.pyplot.figure()
+    matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
+    matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
+    matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+    matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
+    savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
+    matplotlib.pyplot.close()
     
    # if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
    #     remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
