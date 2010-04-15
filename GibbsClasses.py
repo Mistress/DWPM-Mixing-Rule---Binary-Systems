@@ -58,7 +58,7 @@ class NRTL(Model):
         if x1 == 0:
             delGmix = 0
         elif x1 == 1:
-            delGmix == 0
+            delGmix = 0
         else:
             delGmix = real(x1*x2*(((Tau21*G21)/(x1+(x2*G21))) + ((Tau12*G12)/(x2+(x1*G12)))) + x1*log(x1) + x2*log(x2))
         return delGmix

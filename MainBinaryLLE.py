@@ -71,7 +71,38 @@ class Mixture:
         #show()
         savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
-        print self.Name, Actual, TangentComps         
+        
+        if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+Fit+'/'+self.Name +'.h5')):
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
+            if Model=='DWPM':                                             
+                table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
+            else:
+                table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
+
+            table.row['T'] = T
+            table.row['ModelParams'] = array(BestParams)
+            table.row['Predicted'] = TangentComps
+            table.row['Actual'] = Actual
+            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+
+            table.row.append()
+            table.flush()
+            h5file.close()
+        else:
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'r+')
+            table = h5file.root.Outputs
+            table.row['T'] = T
+            table.row['ModelParams'] = array(BestParams)
+            table.row['Predicted'] = TangentComps
+            table.row['Actual'] = Actual
+            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+            
+            table.row.append()
+            table.flush()
+            h5file.close()
+
            
     def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c):
        
@@ -97,7 +128,7 @@ class Mixture:
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
-            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], None, Bounds, None, None, None, (ModelInstance, Actual, T, c), 1000, 1e-4, 1, 1, 1e-6)
+            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], None, Bounds, None, None, None, (ModelInstance, Actual, T, c), 1000, 1e-6, 1, 1, 1e-8)
             #InitParams = params    
             self.Plotter(params, Model, Fit, ModelInstance(params), Actual, c, T)
             
