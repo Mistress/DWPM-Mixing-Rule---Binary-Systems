@@ -49,4 +49,4 @@ def CalcPhaseStability(ModelInstance, T, c, M):
         
            
     BestFit = array([tuple(OutArray)], dtype)
-    return array([BestFit[0][0], BestFit[0][1]])
+    return sort(array([BestFit[0][0], BestFit[0][1]]))

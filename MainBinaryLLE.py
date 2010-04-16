@@ -66,7 +66,10 @@ class Mixture:
         matplotlib.pyplot.ylabel(r'$\displaystyle\frac{\Delta G_{mix}}{RT}$', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
         ax = fig.add_axes([0,0,1,1])
-        ax.text(0,0, 'Model: %s, Params: %s, Abslote Error(sum): %4.4e'%(Model, str(around(BestParams, 4)),AbsError), fontsize=12, transform=ax.transAxes)
+        if Model == 'DWPM':
+            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1], BestParams[2],AbsError), fontsize=12, transform=ax.transAxes)
+        else:
+            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1] ,AbsError), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
         #show()
         savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
@@ -104,14 +107,15 @@ class Mixture:
             h5file.close()
 
            
-    def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c):
-       
-        Predicted = PhaseStability.CalcPhaseStability(ModelInstance(params) , T, c, self.M)
+    def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c, Scale):
+        
+        UnScaledParams = params*Scale
+        Predicted = PhaseStability.CalcPhaseStability(ModelInstance(UnScaledParams) , T, c, self.M)
         Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
 
         return Error
   
-    def BestFitParamsIndvT(self,Model, ModelInstance, InitParams, Bounds):
+    def BestFitParamsIndvT(self,Model, ModelInstance, InitParams, Bounds, Scale):
         Fit = 'IndividualT'
         if not(path.exists('Results/'+self.Name+'/'+Model)):
             mkdir('Results/'+self.Name+'/'+Model)        
@@ -121,6 +125,12 @@ class Mixture:
                 remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+            
+
+        ScaledInitParams = array(InitParams)/array(Scale)
+        BoundsList = [array(item) for item in Bounds]
+        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
+        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
         
         for T in self.M['T']:
                     
@@ -128,9 +138,10 @@ class Mixture:
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
-            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, InitParams,[], None, [], None, Bounds, None, None, None, (ModelInstance, Actual, T, c), 1000, 1e-6, 1, 1, 1e-8)
-            #InitParams = params    
-            self.Plotter(params, Model, Fit, ModelInstance(params), Actual, c, T)
+            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale)), 1000, 1e-6, 1, 1, 1e-7)
+            #params, fx, dict = scipy.optimize.fmin_l_bfgs_b(self.OptFunctionIndvT, InitParams, None, (ModelInstance, Actual, T, c),1, Bounds, 10, 1000, 1e-6, 1e-6, 1,1500)
+            #ScaledInitParams = params    
+            self.Plotter(params*array(Scale), Model, Fit, ModelInstance(params*array(Scale)), Actual, c, T)
             
         return params
     
@@ -180,8 +191,9 @@ ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Compounds = ('1-butanol', 'water')
-Bounds = [((-1000, 0), (-1000, 0), (0.5, 0.5)), ((-800, 3000), (-800, 3000)), ((-800, 3000), (-800, 3000))]
-InitParams =[(-200.0,-25.0, 0.5),(-250.0, 1500.0), (-20, 300.00)]
+Bounds = [((-1500, 0), (-1500, 0), (0.5, 0.5)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Scale = ((1500, 1500, 1), (4000, 4000), (4000, 4000))
+InitParams =[(-1000.0,-100.0, 0.5),(-250.0, 1300.0), (10, 180.00)]
 R = 8.314
 
 if not(path.exists('Results/')):
@@ -197,7 +209,7 @@ for i in arange(size(Models)):
     if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
         remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
     
-    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i])
+    Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
     
     h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
     PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
