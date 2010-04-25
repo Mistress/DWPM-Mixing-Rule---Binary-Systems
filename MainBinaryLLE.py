@@ -196,7 +196,7 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-1500, 0), (-1500, 0), (0.5, 0.5)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Bounds = [((-1500, 0), (-1500, 0), (-Inf, 0)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((1500, 1500, 1), (4000, 4000), (4000, 4000))
 
 R = 8.314
@@ -242,24 +242,25 @@ for file in listdir(MixtureDataDir):
         savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
         matplotlib.pyplot.close()
 
-        if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
-            remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
+        if Models[i]=='DWPM':
+            if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
+                remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
 
-        Optimization.BestFitParamsOvrlT(Models[i], ModelInstances[i], InitParams[i], Bounds[i],Scale[i])
+            Optimization.BestFitParamsOvrlT(Models[i], ModelInstances[i], InitParams[i], Bounds[i],Scale[i])
 
-        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5', 'r')
-        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-        PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-        h5file.close()
-        matplotlib.rc('text', usetex = True)
-        fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-        matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-        matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-        savefig('Results/'+Name+'/'+Models[i]+'/OverallT/PhaseDiagram.pdf')
-        matplotlib.pyplot.close()
+            h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5', 'r')
+            PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+            PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+            PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+            h5file.close()
+            matplotlib.rc('text', usetex = True)
+            fig = matplotlib.pyplot.figure()
+            matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
+            matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
+            matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+            matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
+            savefig('Results/'+Name+'/'+Models[i]+'/OverallT/PhaseDiagram.pdf')
+            matplotlib.pyplot.close()
 
 
    
