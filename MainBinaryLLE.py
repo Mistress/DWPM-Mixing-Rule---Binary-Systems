@@ -138,7 +138,7 @@ class Mixture:
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
-            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale)), 1000, 1e-6, 1, 1, 1e-6)
+            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale)), 1000, 1e-8, 1, 1, 1e-6)
             #params, fx, dict = scipy.optimize.fmin_l_bfgs_b(self.OptFunctionIndvT, InitParams, None, (ModelInstance, Actual, T, c),1, Bounds, 10, 1000, 1e-6, 1e-6, 1,1500)
             ScaledInitParams = params    
             self.Plotter(params*array(Scale), Model, Fit, ModelInstance(params*array(Scale)), Actual, c, T)
@@ -196,8 +196,8 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-1500, 0), (-1500, 0), (-Inf, 0)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
-Scale = ((1500, 1500, 1), (4000, 4000), (4000, 4000))
+Bounds = [((-1500, 0), (-1500, 0), (0, 10)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Scale = ((1500, 1500, 10), (4000, 4000), (4000, 4000))
 
 R = 8.314
 
@@ -215,7 +215,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-1000.0,-100.0, 0.5),InitNRTL, InitUNIQUAC]
+    InitParams =[(-1000.0,-100.0,0.5),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
