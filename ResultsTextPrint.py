@@ -58,7 +58,7 @@ for Mixture in listdir(MixtureDataDir):
         h5file.close()
 
     for line in arange(size(AllModelParams['T'])):
-        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f ' %(AllModelParams['T'][line], AllModelParams['DWPM'][line][0], AllModelParams['DWPM'][line][1], AllModelParams['NRTL'][line][0], AllModelParams['NRTL'][line][1], AllModelParams['UNIQUAC'][line][0], AllModelParams['UNIQUAC'][line][1]))
+        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f  & %.3f & %.3f ' %(AllModelParams['T'][line], AllModelParams['DWPM'][line][0], AllModelParams['DWPM'][line][1],AllModelParams['DWPM'][line][2],AllModelParams['DWPM'][line][3], AllModelParams['NRTL'][line][0], AllModelParams['NRTL'][line][1], AllModelParams['UNIQUAC'][line][0], AllModelParams['UNIQUAC'][line][1]))
         OutTextFile.write('\\')
         OutTextFile.write('\\')
         OutTextFile.write('\n')
