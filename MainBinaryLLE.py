@@ -14,7 +14,7 @@ import PhaseStability
 
 class ResultsFile1(tables.IsDescription):
     T = tables.Float64Col()
-    ModelParams = tables.Float64Col(shape = (3)) 
+    ModelParams = tables.Float64Col(shape = (4)) 
     Predicted = tables.Float64Col(shape = (2))
     Actual = tables.Float64Col(shape = (2))
     SumSqrError = tables.Float64Col()
@@ -67,7 +67,7 @@ class Mixture:
         matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
         ax = fig.add_axes([0,0,1,1])
         if Model == 'DWPM':
-            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1], BestParams[2],AbsError), fontsize=12, transform=ax.transAxes)
+            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1], BestParams[2], BestParams[3], AbsError), fontsize=12, transform=ax.transAxes)
         else:
             ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1] ,AbsError), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
@@ -196,8 +196,8 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-1500, 0), (-1500, 0), (0, 10)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
-Scale = ((1500, 1500, 10), (4000, 4000), (4000, 4000))
+Bounds = [((-1500, 0), (-1500, 0), (0, 1), (0, 1)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Scale = ((1500, 1500, 1, 1), (4000, 4000), (4000, 4000))
 
 R = 8.314
 
@@ -215,7 +215,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-1000.0,-100.0,0.5),InitNRTL, InitUNIQUAC]
+    InitParams =[(-1000.0,-100.0,0.5, 0.5),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)

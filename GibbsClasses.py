@@ -14,7 +14,9 @@ class DWPM(Model):
         self.name = 'DWPM'
         self.c12 = param[0]
         self.c21 = param[1]
-        self.s = param[2]
+        self.s1 = param[2]
+        self.s2 = param[3]
+        
                          
     def deltaGmix(self, x, T, c, M):
         x1 = x
@@ -28,7 +30,7 @@ class DWPM(Model):
         elif x1 == 1:
             delGmix = 0
         else:
-            delGmix = real(x1*log(x1) + x2*log(x2) - (1/self.s)*(x1*log(x1 + x2*A12**self.s) + x2*log(x1*A21**self.s + x2)))
+            delGmix = real(x1*log(x1) + x2*log(x2) - (x1/self.s1)*log(x1 + x2*A12**self.s1) - (x2/self.s2)*log(x1*A21**self.s2 + x2))
         return delGmix
             
     def FirstDerivative(self, x, T, c, M):
@@ -37,7 +39,7 @@ class DWPM(Model):
         A12 = c[0]/self.c12
         A21 = c[1]/self.c21
 
-        dGmix_dx = real(-(-log(x1*A21**self.s-x1+1)+(1-x1)*(A21**self.s-1)/(x1*A21**self.s-x1+1) + log((1-x1)*A12**self.s+x1)+x1*(1-A12**self.s)/((1-x1)*A12**self.s+x1))/self.s +log(x1)-log(1-x1))
+        dGmix_dx = real((1/self.s2)*log(x1*A21**self.s2+x2)-(x2/self.s2)*(A21**self.s2-1)/(x1*A21**self.s2 +x2) -(1/self.s1)*log(x2*A12**self.s1+x1) - (x1/self.s1)*(1-A12**self.s1)/(x2*A12**self.s1+x1) +log(x1)-log(x2))
         return dGmix_dx
     
 class NRTL(Model):
