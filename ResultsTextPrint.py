@@ -21,32 +21,7 @@ for model in ('DWPM', 'NRTL', 'UNIQUAC'):
       
 for Mixture in listdir(MixtureDataDir):
     OutTextFile = open('Results/TextFiles/'+Mixture[0:-3]+'.tex', 'w')
-   # OutTextFile.write(r'\begin{table*}')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\centering')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\begin{tabularx}{\linewidth}{|X|lr|lr|lr|}')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\textbf{T}&\multicolumn{2}{|c|}{\textbf{DWPM}}&\multicolumn{2}{|c|}{\textbf{NRTL}}&\multicolumn{2}{|c|}{\textbf{UNIQUAC}}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'&\textbf{$c_{21}$}&\textbf{$c_{21}$}&\textbf{$A_{12}$}&\textbf{$A_{21}$}&\textbf{$A_{12}$}&\textbf{$A_{21}$}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\multicolumn{7}{|l|}{\textbf{%s}}'%(Mixture[0:-3]))
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-    #OutTextFile.write('\hline')
-    #OutTextFile.write('\n')
-    #OutTextFile.write('\hline')
-    #OutTextFile.write('\n')
+   
     
     AllModelParams = dict()
     for model in ('DWPM', 'NRTL', 'UNIQUAC'):
@@ -55,22 +30,19 @@ for Mixture in listdir(MixtureDataDir):
         PlotPredX[model] = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
         AllModelParams['T'] = [row['T'] for row in table.iterrows()]
         AllModelParams[model]= [row['ModelParams'] for row in table.iterrows()]
+        if model == 'DWPM':
+            AllModelParams['PureCompParams'] = [row['PureCompParams'] for row in table.iterrows()]
         h5file.close()
 
     for line in arange(size(AllModelParams['T'])):
-        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f ' %(AllModelParams['T'][line], AllModelParams['DWPM'][line][0], AllModelParams['DWPM'][line][1], AllModelParams['NRTL'][line][0], AllModelParams['NRTL'][line][1], AllModelParams['UNIQUAC'][line][0], AllModelParams['UNIQUAC'][line][1]))
+        DWPM0 = (AllModelParams['PureCompParams'][line][0]/AllModelParams['DWPM'][line][0])**0.5
+        DWPM1 = (AllModelParams['PureCompParams'][line][1]/AllModelParams['DWPM'][line][1])**0.5
+        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f ' %(AllModelParams['T'][line],DWPM0 ,DWPM1, AllModelParams['NRTL'][line][0], AllModelParams['NRTL'][line][1], AllModelParams['UNIQUAC'][line][0], AllModelParams['UNIQUAC'][line][1]))
         OutTextFile.write('\\')
         OutTextFile.write('\\')
         OutTextFile.write('\n')
         
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\end{tabularx}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\caption{Optimization Solution for %s } \label{%s}\n' %(Mixture[0:-3], Mixture[0:-3]))			
-   # OutTextFile.write('\end{table*}\n')
+  
     OutTextFile.flush
     OutTextFile.close()
             
@@ -92,7 +64,7 @@ for Mixture in listdir(MixtureDataDir):
     matplotlib.pyplot.plot(PlotExpX[1], PlotT, 'ko')
     matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(),fontsize = 14)
     matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-    leg = matplotlib.pyplot.legend((l1, l2,l3, l4,), ('DWPM','NRTL','UNIQUAC', 'Experimental'), loc=0)
+    leg = matplotlib.pyplot.legend((l1, l2,l3, l4,), ('Wilson3','NRTL','UNIQUAC', 'Experimental'), loc=0)
     for t in leg.get_texts():
         t.set_fontsize('small')
     savefig('Results/TextFiles/'+Mixture[0:-3]+'PhaseDiagram.ps')

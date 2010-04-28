@@ -19,6 +19,7 @@ class ResultsFile1(tables.IsDescription):
     Actual = tables.Float64Col(shape = (2))
     SumSqrError = tables.Float64Col()
     AbsError = tables.Float64Col(shape = (2))
+    PureCompParams = tables.Float64Col(shape = (2))
 
 class ResultsFile2(tables.IsDescription):
     T = tables.Float64Col()
@@ -79,33 +80,59 @@ class Mixture:
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
             if Model=='DWPM':                                             
                 table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row['PureCompParams']  = reshape(array(c),-1)
+                table.row.append()
+                table.flush()
+                h5file.close()
             else:
                 table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row.append()
+                table.flush()
+                h5file.close()
 
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-
-            table.row.append()
-            table.flush()
-            h5file.close()
+            
         else:
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'r+')
             table = h5file.root.Outputs
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
             
-            table.row.append()
-            table.flush()
-            h5file.close()
+            if Model=='DWPM':                                             
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row['PureCompParams']  = reshape(array(c),-1)
+                table.row.append()
+                table.flush()
+                h5file.close()
+            else:                
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row.append()
+                table.flush()
+                h5file.close()
 
+            
+            
+           
+            
            
     def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c, Scale):
         
@@ -138,6 +165,7 @@ class Mixture:
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
             
+            
             [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale)), 1000, 1e-6, 1, 1, 1e-6)
             #params, fx, dict = scipy.optimize.fmin_l_bfgs_b(self.OptFunctionIndvT, InitParams, None, (ModelInstance, Actual, T, c),1, Bounds, 10, 1000, 1e-6, 1e-6, 1,1500)
             ScaledInitParams = params    
@@ -145,48 +173,7 @@ class Mixture:
             
         return params*array(Scale)
     
-    def OptFunctionOvrlT(self, params, ModelInstance, Scale):
-
-        Errors = zeros(size(self.M['T']))
-        UnScaledParams = params*Scale
-
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
-            Predicted = PhaseStability.CalcPhaseStability(ModelInstance(UnScaledParams), T, c, self.M)
-            Errors[where(self.M['T']== T)] = ErrorClasses.SumAbs(Predicted ,Actual).Error()
-        
-        OvrlError = sum(Errors**2)
-
-        return OvrlError
-        
-    def BestFitParamsOvrlT(self, Model, ModelInstance, InitParams, Bounds, Scale):
-        
-        Fit = 'OverallT'
-        if not(path.exists('Results/'+self.Name+'/'+Model)):
-            mkdir('Results/'+self.Name+'/'+Model)        
-        if path.exists('Results/'+self.Name+'/'+Model+'/'+Fit):
-            fileList = listdir('Results/'+self.Name+'/'+Model+'/'+Fit)
-            for fn in fileList: 
-                remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
-        else:
-            mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
-
-        ScaledInitParams = array(InitParams)/array(Scale)
-        BoundsList = [array(item) for item in Bounds]
-        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
-        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
-
-        [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Scale), 1000, 10e-6, 1, 1, 10e-6)
-         
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in self.Compounds]
-            self.Plotter(params*array(Scale), Model, Fit, ModelInstance(params*array(Scale)), Actual, c, T)
-
-        return params*array(Scale)
+   
 
     
        
@@ -196,7 +183,7 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-1500, 0), (-1500, 0), (-Inf, 0)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Bounds = [((-1500, 0), (-1500, 0), (0.5, 0.5)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((1500, 1500, 1), (4000, 4000), (4000, 4000))
 
 R = 8.314
@@ -215,7 +202,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-1000.0,-100.0, 0.5),InitNRTL, InitUNIQUAC]
+    InitParams =[(-1000,-100, 0.5),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
@@ -242,25 +229,6 @@ for file in listdir(MixtureDataDir):
         savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
         matplotlib.pyplot.close()
 
-        if Models[i]=='DWPM':
-            if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
-                remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
-
-            Optimization.BestFitParamsOvrlT(Models[i], ModelInstances[i], InitParams[i], Bounds[i],Scale[i])
-
-            h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5', 'r')
-            PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-            PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-            PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-            h5file.close()
-            matplotlib.rc('text', usetex = True)
-            fig = matplotlib.pyplot.figure()
-            matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-            matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-            matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-            matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-            savefig('Results/'+Name+'/'+Models[i]+'/OverallT/PhaseDiagram.pdf')
-            matplotlib.pyplot.close()
-
+        
 
    
