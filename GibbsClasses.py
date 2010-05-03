@@ -21,8 +21,8 @@ class DWPM(Model):
     def deltaGmix(self, x, T, c, M):
         x1 = x
         x2 =1-x1
-        A12 = c[0]/self.c12
-        A21 = c[1]/self.c21
+        A12 = self.c12/c[0]
+        A21 = self.c21/c[1]
 
         
         if x1 == 0:
@@ -36,8 +36,8 @@ class DWPM(Model):
     def FirstDerivative(self, x, T, c, M):
         x1 = x
         x2 =1-x1
-        A12 = c[0]/self.c12
-        A21 = c[1]/self.c21
+        A12 = self.c12/c[0]
+        A21 = self.c21/c[1]
 
         dGmix_dx = real((1/self.s2)*log(x1*A21**self.s2+x2)-(x2/self.s2)*(A21**self.s2-1)/(x1*A21**self.s2 +x2) -(1/self.s1)*log(x2*A12**self.s1+x1) - (x1/self.s1)*(1-A12**self.s1)/(x2*A12**self.s1+x1) +log(x1)-log(x2))
         return dGmix_dx

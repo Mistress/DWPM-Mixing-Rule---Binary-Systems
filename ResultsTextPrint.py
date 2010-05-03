@@ -21,32 +21,7 @@ for model in ('DWPM', 'NRTL', 'UNIQUAC'):
       
 for Mixture in listdir(MixtureDataDir):
     OutTextFile = open('Results/TextFiles/'+Mixture[0:-3]+'.tex', 'w')
-   # OutTextFile.write(r'\begin{table*}')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\centering')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\begin{tabularx}{\linewidth}{|X|lr|lr|lr|}')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\textbf{T}&\multicolumn{2}{|c|}{\textbf{DWPM}}&\multicolumn{2}{|c|}{\textbf{NRTL}}&\multicolumn{2}{|c|}{\textbf{UNIQUAC}}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'&\textbf{$c_{21}$}&\textbf{$c_{21}$}&\textbf{$A_{12}$}&\textbf{$A_{21}$}&\textbf{$A_{12}$}&\textbf{$A_{21}$}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write(r'\multicolumn{7}{|l|}{\textbf{%s}}'%(Mixture[0:-3]))
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-    #OutTextFile.write('\hline')
-    #OutTextFile.write('\n')
-    #OutTextFile.write('\hline')
-    #OutTextFile.write('\n')
+  
     
     AllModelParams = dict()
     for model in ('DWPM', 'NRTL', 'UNIQUAC'):
@@ -55,22 +30,17 @@ for Mixture in listdir(MixtureDataDir):
         PlotPredX[model] = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
         AllModelParams['T'] = [row['T'] for row in table.iterrows()]
         AllModelParams[model]= [row['ModelParams'] for row in table.iterrows()]
+        if model == 'DWPM':
+            AllModelParams['DWPMPureCompParams'] = [row['PureCompParams'] for row in table.iterrows()]
         h5file.close()
 
     for line in arange(size(AllModelParams['T'])):
-        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f  & %.3f & %.3f ' %(AllModelParams['T'][line], AllModelParams['DWPM'][line][0], AllModelParams['DWPM'][line][1],AllModelParams['DWPM'][line][2],AllModelParams['DWPM'][line][3], AllModelParams['NRTL'][line][0], AllModelParams['NRTL'][line][1], AllModelParams['UNIQUAC'][line][0], AllModelParams['UNIQUAC'][line][1]))
+        OutTextFile.write(r'%.2f & %.3f & %.3f & %.3f & %.3f & %.3f & %.3f  ' %(AllModelParams['T'][line], AllModelParams['DWPM'][line][0], AllModelParams['DWPM'][line][1],AllModelParams['DWPM'][line][2],AllModelParams['DWPM'][line][3],AllModelParams['DWPMPureCompParams'][line][0],AllModelParams['DWPMPureCompParams'][line][1]))
         OutTextFile.write('\\')
         OutTextFile.write('\\')
         OutTextFile.write('\n')
         
-   # OutTextFile.write('\hline')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\end{tabularx}')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\\')
-   # OutTextFile.write('\n')
-   # OutTextFile.write('\caption{Optimization Solution for %s } \label{%s}\n' %(Mixture[0:-3], Mixture[0:-3]))			
-   # OutTextFile.write('\end{table*}\n')
+  
     OutTextFile.flush
     OutTextFile.close()
             

@@ -19,6 +19,7 @@ class ResultsFile1(tables.IsDescription):
     Actual = tables.Float64Col(shape = (2))
     SumSqrError = tables.Float64Col()
     AbsError = tables.Float64Col(shape = (2))
+    PureCompParams = tables.Float64Col(shape = (2))
 
 class ResultsFile2(tables.IsDescription):
     T = tables.Float64Col()
@@ -79,32 +80,51 @@ class Mixture:
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
             if Model=='DWPM':                                             
                 table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row['PureCompParams']  = reshape(array(c),-1)
+                table.row.append()
+                table.flush()
+                h5file.close()
             else:
                 table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
-
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-
-            table.row.append()
-            table.flush()
-            h5file.close()
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row.append()
+                table.flush()
+                h5file.close()
         else:
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'r+')
             table = h5file.root.Outputs
-            table.row['T'] = T
-            table.row['ModelParams'] = array(BestParams)
-            table.row['Predicted'] = TangentComps
-            table.row['Actual'] = Actual
-            table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-            table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-            
-            table.row.append()
-            table.flush()
-            h5file.close()
+            if Model=='DWPM':                                             
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row['PureCompParams']  = reshape(array(c),-1)
+                table.row.append()
+                table.flush()
+                h5file.close()
+            else:             
+                table.row['T'] = T
+                table.row['ModelParams'] = array(BestParams)
+                table.row['Predicted'] = TangentComps
+                table.row['Actual'] = Actual
+                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+                table.row.append()
+                table.flush()
+                h5file.close()
 
            
     def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c, Scale):
@@ -196,8 +216,8 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-1500, 0), (-1500, 0), (0, 1), (0, 1)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
-Scale = ((1500, 1500, 1, 1), (4000, 4000), (4000, 4000))
+Bounds = [((-10, 0), (-10, 0), (0, 1), (0, 1)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Scale = ((10, 10, 1, 1), (4000, 4000), (4000, 4000))
 
 R = 8.314
 
@@ -215,7 +235,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-1000.0,-100.0,0.5, 0.5),InitNRTL, InitUNIQUAC]
+    InitParams =[(-0.1,-0.01,0.5, 0.5),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
