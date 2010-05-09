@@ -33,7 +33,7 @@ def CalcPhaseStability(ModelInstance, T, c, M):
     xo = array([0.001, 0.999])
     counter = 1
 
-    while (OutArray[2]>1e-5 or OutArray[3]>1e-5) and counter<500:
+    while (OutArray[2]>1e-5 or OutArray[3]>1e-5) and counter<700:
         
        
         (Pred_x_eq, infodict, ier, msg) = scipy.optimize.fsolve(System, xo,(ModelInstance, T, c, M), None, 1, 0, 10**-6, 0, None, 0.0, 100, None,True)

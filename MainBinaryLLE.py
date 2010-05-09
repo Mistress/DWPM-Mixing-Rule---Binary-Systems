@@ -50,8 +50,8 @@ class Mixture:
                 self.M[field] = row[field]
         self.vdWaalsInstance = vanDerWaals.Slope(self.Data, Compounds)
         [Slope, VPData] = self.vdWaalsInstance.BestFit()
-        self.AdachiLuParam = dict((Compound,  Slope[Compound]['BestFit']) for Compound in Compounds)
         h5file.close()
+        self.Binaries = zeros((size(self.M['T']), 2))
     
     def Plotter(self, BestParams, Model, Fit, ModelInstance, Actual, c, T):
        
@@ -127,15 +127,42 @@ class Mixture:
                 h5file.close()
 
            
-    def OptFunctionIndvT(self, params, ModelInstance, Actual, T, c, Scale):
+    def OptFunctionIndvBinaries(self, Binaries, ModelInstance, Actual, T, c, Scale, Cell_s):
         
-        UnScaledParams = params*Scale
-        Predicted = PhaseStability.CalcPhaseStability(ModelInstance(UnScaledParams) , T, c, self.M)
-        Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
+        UnScaledParams = Binaries*Scale
+        
+        Predicted = PhaseStability.CalcPhaseStability(ModelInstance(append(UnScaledParams,Cell_s)), T, c, self.M)
+        Error = ErrorClasses.SumAbs(Predicted ,Actual).Error()
 
         return Error
+    
+    def OptFunctionOvrlS(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
+
+        Errors = zeros(size(self.M['T']))
+        ScaledInitParams = array(InitParams)/array(Scale)
+        BoundsList = [array(item) for item in Bounds]
+        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
+        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
+       
+        for T in self.M['T']:
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = self.vdWaalsInstance.CompC(T)
+            c = [CompC[Compound] for Compound in Compounds]
+            
+            [Binaries, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvBinaries, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale), Cell_s), 1000, 1e-8, 1, 1, 1e-6)
+            
+            #ScaledInitParams = Binaries 
+            self.Binaries[where(self.M['T']==T),:] = Binaries*array(Scale)
+            
+            Errors[where(self.M['T']==T)] = fx
+        
+        OvrlError = sum(Errors**2)
+
+
+        return OvrlError
   
-    def BestFitParamsIndvT(self,Model, ModelInstance, InitParams, Bounds, Scale):
+    def BestFitParams(self,Model, ModelInstance, InitParams, Bounds, Scale):
+
         Fit = 'IndividualT'
         if not(path.exists('Results/'+self.Name+'/'+Model)):
             mkdir('Results/'+self.Name+'/'+Model)        
@@ -146,69 +173,18 @@ class Mixture:
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
             
-
-        ScaledInitParams = array(InitParams)/array(Scale)
-        BoundsList = [array(item) for item in Bounds]
-        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
-        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
+        [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.6),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-8, 1, 1, 10e-6)
         
-        for T in self.M['T']:
-                    
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in self.Compounds]
-            
-            [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale)), 1000, 1e-8, 1, 1, 1e-6)
-            #params, fx, dict = scipy.optimize.fmin_l_bfgs_b(self.OptFunctionIndvT, InitParams, None, (ModelInstance, Actual, T, c),1, Bounds, 10, 1000, 1e-6, 1e-6, 1,1500)
-            ScaledInitParams = params    
-            self.Plotter(params*array(Scale), Model, Fit, ModelInstance(params*array(Scale)), Actual, c, T)
-            
-        return params*array(Scale)
-    
-    def OptFunctionOvrlT(self, params, ModelInstance, Scale):
-
-        Errors = zeros(size(self.M['T']))
-        UnScaledParams = params*Scale
-
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
-            Predicted = PhaseStability.CalcPhaseStability(ModelInstance(UnScaledParams), T, c, self.M)
-            Errors[where(self.M['T']== T)] = ErrorClasses.SumAbs(Predicted ,Actual).Error()
-        
-        OvrlError = sum(Errors**2)
-
-        return OvrlError
-        
-    def BestFitParamsOvrlT(self, Model, ModelInstance, InitParams, Bounds, Scale):
-        
-        Fit = 'OverallT'
-        if not(path.exists('Results/'+self.Name+'/'+Model)):
-            mkdir('Results/'+self.Name+'/'+Model)        
-        if path.exists('Results/'+self.Name+'/'+Model+'/'+Fit):
-            fileList = listdir('Results/'+self.Name+'/'+Model+'/'+Fit)
-            for fn in fileList: 
-                remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
-        else:
-            mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
-
-        ScaledInitParams = array(InitParams)/array(Scale)
-        BoundsList = [array(item) for item in Bounds]
-        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
-        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
-
-        [params, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlT, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Scale), 1000, 10e-6, 1, 1, 10e-6)
-         
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
-            self.Plotter(params*array(Scale), Model, Fit, ModelInstance(params*array(Scale)), Actual, c, T)
+            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, Fit, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
+        
 
-        return params*array(Scale)
 
-    
+        return  Cell_s
+   
        
 
 ##=============================================================##
@@ -216,8 +192,8 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-10, 0), (-10, 0), (0, 1), (0, 1)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
-Scale = ((10, 10, 1, 1), (4000, 4000), (4000, 4000))
+Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Scale = ((15, 15), (4000, 4000), (4000, 4000))
 
 R = 8.314
 
@@ -235,18 +211,19 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-0.1,-0.01,0.5, 0.5),InitNRTL, InitUNIQUAC]
+    InitParams =[(-0.01,-0.01),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
 
     
-    for i in arange(size(Models)):  
+    #for i in arange(size(Models)):  
+    for i in arange(1):
         Name = '-'.join(Compounds)
         if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
             remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
 
-        Optimization.BestFitParamsIndvT(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
+        Optimization.BestFitParams(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
 
         h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
         PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
@@ -262,25 +239,7 @@ for file in listdir(MixtureDataDir):
         savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
         matplotlib.pyplot.close()
 
-        if Models[i]=='DWPM':
-            if path.exists('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5'):
-                remove('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5') 
-
-            Optimization.BestFitParamsOvrlT(Models[i], ModelInstances[i], InitParams[i], Bounds[i],Scale[i])
-
-            h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/OverallT/'+Name +'.h5', 'r')
-            PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-            PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-            PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-            h5file.close()
-            matplotlib.rc('text', usetex = True)
-            fig = matplotlib.pyplot.figure()
-            matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-            matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-            matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-            matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-            savefig('Results/'+Name+'/'+Models[i]+'/OverallT/PhaseDiagram.pdf')
-            matplotlib.pyplot.close()
+       
 
 
    
