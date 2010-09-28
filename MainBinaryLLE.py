@@ -144,17 +144,18 @@ class Mixture:
         ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
         ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
        
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
+       # for T in self.M['T']:
+        T = self.M['T'][0]
+        Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+        CompC = self.vdWaalsInstance.CompC(T)
+        c = [CompC[Compound] for Compound in Compounds]
             
-            [Binaries, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvBinaries, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale), Cell_s), 1000, 1e-8, 1, 1, 1e-6)
+        [Binaries, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvBinaries, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale), Cell_s), 1000, 1e-8, 1, 1, 1e-6)
             
             #ScaledInitParams = Binaries 
-            self.Binaries[where(self.M['T']==T),:] = Binaries*array(Scale)
-            
-            Errors[where(self.M['T']==T)] = fx
+        self.Binaries[where(self.M['T']==T),:] = Binaries*array(Scale)
+        
+        Errors[where(self.M['T']==T)] = fx
         
         OvrlError = sum(Errors**2)
 
@@ -173,17 +174,19 @@ class Mixture:
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
             
-        [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.6),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-8, 1, 1, 10e-6)
+        ##[Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.6),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-8, 1, 1, 10e-6)
         
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in self.Compounds]
-            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, Fit, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
+        #for T in self.M['T']:
+        #    Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+        #    CompC = self.vdWaalsInstance.CompC(T)
+        #    c = [CompC[Compound] for Compound in self.Compounds]
+        #    self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, Fit, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
         
 
 
-        return  Cell_s
+        #return  Cell_s
+
+        self.OptFunctionOvrlS((0.5, 0.6), ModelInstance, Scale, InitParams, Bounds)
    
        
 
@@ -203,41 +206,42 @@ if not(path.exists('Results/')):
 
  
 
-for file in listdir(MixtureDataDir):
+#for file in listdir(MixtureDataDir):
+file = listdir(MixtureDataDir)[0]
 
-    h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
-    Compounds = h5file.root.Compounds.read()
-    InitUNIQUAC = tuple(h5file.root.DechemaParams.UNIQUAC.read()[:,0])
-    InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
-    h5file.close()
-    Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-0.01,-0.01),InitNRTL, InitUNIQUAC]
+h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
+Compounds = h5file.root.Compounds.read()
+InitUNIQUAC = tuple(h5file.root.DechemaParams.UNIQUAC.read()[:,0])
+InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
+h5file.close()
+Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
+InitParams =[(-0.01,-0.01),InitNRTL, InitUNIQUAC]
 
-    if not(path.exists('Results/'+Optimization.Name)):
-        mkdir('Results/'+Optimization.Name)
+if not(path.exists('Results/'+Optimization.Name)):
+    mkdir('Results/'+Optimization.Name)
 
     
     #for i in arange(size(Models)):  
-    for i in arange(1):
+for i in arange(1):
         Name = '-'.join(Compounds)
         if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
             remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
 
         Optimization.BestFitParams(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
 
-        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
-        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-        PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-        h5file.close()
-        matplotlib.rc('text', usetex = True)
-        fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-        matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-        matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-        savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
-        matplotlib.pyplot.close()
+        ## h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
+        ## PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+        ## PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+        ## PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+        ## h5file.close()
+        ## matplotlib.rc('text', usetex = True)
+        ## fig = matplotlib.pyplot.figure()
+        ## matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
+        ## matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
+        ## matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+        ## matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
+        ## savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
+        ## matplotlib.pyplot.close()
 
        
 
