@@ -1,93 +1,93 @@
 Total Calls
-Wed Sep 22 18:19:52 2010    BinaryProfile
+Wed Oct 20 14:38:55 2010    BinaryProfile
 
-         93745422 function calls (93740674 primitive calls) in 790.217 CPU seconds
+         4729137 function calls (4724470 primitive calls) in 42.660 CPU seconds
 
    Ordered by: call count
-   List reduced from 1976 to 20 due to restriction <20>
+   List reduced from 1974 to 20 due to restriction <20>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
- 18800549   57.315    0.000   57.315    0.000 {numpy.core.multiarray.array}
- 10257175   38.281    0.000   65.544    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:232(asanyarray)
-  8257161   31.997    0.000   58.885    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:180(asarray)
-  8188852   78.264    0.000  163.014    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:162(isreal)
-  8188852   33.670    0.000   84.750    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:110(imag)
-  8144294   31.546    0.000   95.001    0.000 /usr/lib/python2.6/dist-packages/numpy/core/fromnumeric.py:1305(any)
-  8142562   61.915    0.000  501.990    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:215(log)
-  8142562  123.734    0.000  440.075    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:90(_fix_real_lt_zero)
-  4079327   34.540    0.000   34.540    0.000 {method 'any' of 'numpy.generic' objects}
-  4064967   28.915    0.000   28.915    0.000 {method 'any' of 'numpy.ndarray' objects}
-  2031618    7.960    0.000   22.175    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:76(real)
-  1224156   95.360    0.000  407.559    0.000 GibbsClasses.py:21(deltaGmix)
-   817548  121.827    0.000  332.774    0.000 GibbsClasses.py:36(FirstDerivative)
-335296/335130    0.542    0.000    0.543    0.000 {len}
-   231863    0.583    0.000    0.583    0.000 {issubclass}
-   219498    0.645    0.000    0.645    0.000 {numpy.core.multiarray.zeros}
-   137876    0.417    0.000    0.417    0.000 {method 'astype' of 'numpy.ndarray' objects}
-   111807    0.195    0.000    0.195    0.000 {method 'append' of 'list' objects}
-   106551    0.780    0.000    1.422    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:28(_tocomplex)
-   102735    2.069    0.000   71.035    0.001 PhaseStability.py:6(Tieline)
+   654382    6.354    0.000    6.354    0.000 GibbsClasses.py:22(deltaGmix)
+   440899    2.657    0.000    2.657    0.000 {numpy.core.multiarray.array}
+   416781    4.207    0.000    4.207    0.000 GibbsClasses.py:28(FirstDerivative)
+330649/330483    0.518    0.000    0.519    0.000 {len}
+   219264    0.631    0.000    0.631    0.000 {numpy.core.multiarray.zeros}
+   128262    0.497    0.000    1.042    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:180(asarray)
+   125312    0.250    0.000    0.250    0.000 {issubclass}
+   109560    0.187    0.000    0.187    0.000 {method 'append' of 'list' objects}
+    98760    0.809    0.000    1.617    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/shape_base.py:253(atleast_1d)
+    96768    0.785    0.000    0.785    0.000 {method 'all' of 'numpy.ndarray' objects}
+    96505    0.374    0.000    0.652    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:232(asanyarray)
+    66821    0.205    0.000    0.205    0.000 {abs}
+    65436    0.262    0.000    0.785    0.000 /usr/lib/python2.6/dist-packages/numpy/core/fromnumeric.py:1365(all)
+    63778    0.108    0.000    0.108    0.000 {method 'get' of 'dict' objects}
+    62640    0.209    0.000    0.325    0.000 /usr/lib/python2.6/dist-packages/numpy/linalg/linalg.py:36(isComplexType)
+    62640    0.663    0.000    0.663    0.000 {numpy.linalg.lapack_lite.dgeev}
+    62380    0.672    0.000    1.355    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:162(isreal)
+    62380    0.264    0.000    0.683    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:110(imag)
+    62359    0.217    0.000    0.323    0.000 /usr/lib/python2.6/dist-packages/numpy/linalg/linalg.py:49(_realType)
+    44795    0.441    0.000    1.332    0.000 PhaseStability.py:6(Tieline)
 
 
 Cumulative Time
-Wed Sep 22 18:19:52 2010    BinaryProfile
+Wed Oct 20 14:38:55 2010    BinaryProfile
 
-         93745422 function calls (93740674 primitive calls) in 790.217 CPU seconds
+         4729137 function calls (4724470 primitive calls) in 42.660 CPU seconds
 
    Ordered by: cumulative time
-   List reduced from 1976 to 20 due to restriction <20>
+   List reduced from 1974 to 20 due to restriction <20>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000  790.219  790.219 <string>:1(<module>)
-        1    0.002    0.002  790.218  790.218 MainBinaryLLE.py:3(<module>)
-        1    0.000    0.000  764.790  764.790 MainBinaryLLE.py:165(BestFitParams)
-        1    0.000    0.000  764.789  764.789 MainBinaryLLE.py:139(OptFunctionOvrlS)
-        1    0.007    0.007  764.789  764.789 /usr/lib/python2.6/dist-packages/scipy/optimize/slsqp.py:49(fmin_slsqp)
-  185/101    0.001    0.000  764.778    7.572 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:95(function_wrapper)
-      157    0.006    0.000  764.774    4.871 MainBinaryLLE.py:130(OptFunctionIndvBinaries)
-      157    0.268    0.002  764.754    4.871 PhaseStability.py:27(CalcPhaseStability)
-     5043   14.459    0.003  561.507    0.111 PhaseStability.py:18(NonEqConstr)
-  8142562   61.915    0.000  501.990    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:215(log)
-  8142562  123.734    0.000  440.075    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:90(_fix_real_lt_zero)
-  1224156   95.360    0.000  407.559    0.000 GibbsClasses.py:21(deltaGmix)
-   817548  121.827    0.000  332.774    0.000 GibbsClasses.py:36(FirstDerivative)
-     5043    0.253    0.000  202.783    0.040 /usr/lib/python2.6/dist-packages/scipy/optimize/minpack.py:22(fsolve)
-   102735    3.036    0.000  201.352    0.002 PhaseStability.py:10(System)
-     5043    0.948    0.000  192.421    0.038 {scipy.optimize._minpack._hybrd}
-  8188852   78.264    0.000  163.014    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:162(isreal)
-  8144294   31.546    0.000   95.001    0.000 /usr/lib/python2.6/dist-packages/numpy/core/fromnumeric.py:1305(any)
-  8188852   33.670    0.000   84.750    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:110(imag)
-   102735    2.069    0.000   71.035    0.001 PhaseStability.py:6(Tieline)
+        1    0.002    0.002   42.663   42.663 MainBinaryLLE.py:3(<module>)
+        1    0.000    0.000   24.251   24.251 MainBinaryLLE.py:35(__init__)
+        1    0.012    0.012   24.215   24.215 vanDerWaals.py:115(BestFit)
+     1002    2.813    0.003   24.148    0.024 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:1131(fminbound)
+        1    0.000    0.000   17.568   17.568 MainBinaryLLE.py:165(BestFitParams)
+        1    0.000    0.000   17.568   17.568 MainBinaryLLE.py:139(OptFunctionOvrlS)
+        1    0.000    0.000   17.567   17.567 /usr/lib/python2.6/dist-packages/scipy/optimize/slsqp.py:49(fmin_slsqp)
+      5/2    0.000    0.000   17.567    8.783 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:95(function_wrapper)
+        4    0.000    0.000   17.567    4.392 MainBinaryLLE.py:130(OptFunctionIndvBinaries)
+        4    0.106    0.027   17.566    4.392 PhaseStability.py:27(CalcPhaseStability)
+        1    0.000    0.000   13.173   13.173 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:606(approx_fprime)
+    31320    1.744    0.000   12.685    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/polynomial.py:99(roots)
+     2796    3.962    0.001   12.442    0.004 PhaseStability.py:18(NonEqConstr)
+    16350    1.121    0.000   11.056    0.001 vanDerWaals.py:43(mError)
+       30    0.321    0.011    9.784    0.326 vanDerWaals.py:71(sqrError)
+    14970    1.129    0.000    8.723    0.001 vanDerWaals.py:16(vdWaalsPredict)
+   654382    6.354    0.000    6.354    0.000 GibbsClasses.py:22(deltaGmix)
+    31320    1.511    0.000    5.957    0.000 /usr/lib/python2.6/dist-packages/numpy/linalg/linalg.py:559(eigvals)
+     2796    0.064    0.000    4.937    0.002 /usr/lib/python2.6/dist-packages/scipy/optimize/minpack.py:22(fsolve)
+     2796    0.446    0.000    4.496    0.002 {scipy.optimize._minpack._hybrd}
 
 
 Total Time
-Wed Sep 22 18:19:52 2010    BinaryProfile
+Wed Oct 20 14:38:55 2010    BinaryProfile
 
-         93745422 function calls (93740674 primitive calls) in 790.217 CPU seconds
+         4729137 function calls (4724470 primitive calls) in 42.660 CPU seconds
 
    Ordered by: internal time
-   List reduced from 1976 to 20 due to restriction <20>
+   List reduced from 1974 to 20 due to restriction <20>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-  8142562  123.734    0.000  440.075    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:90(_fix_real_lt_zero)
-   817548  121.827    0.000  332.774    0.000 GibbsClasses.py:36(FirstDerivative)
-  1224156   95.360    0.000  407.559    0.000 GibbsClasses.py:21(deltaGmix)
-  8188852   78.264    0.000  163.014    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:162(isreal)
-  8142562   61.915    0.000  501.990    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/scimath.py:215(log)
- 18800549   57.315    0.000   57.315    0.000 {numpy.core.multiarray.array}
- 10257175   38.281    0.000   65.544    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:232(asanyarray)
-  4079327   34.540    0.000   34.540    0.000 {method 'any' of 'numpy.generic' objects}
-  8188852   33.670    0.000   84.750    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:110(imag)
-  8257161   31.997    0.000   58.885    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:180(asarray)
-  8144294   31.546    0.000   95.001    0.000 /usr/lib/python2.6/dist-packages/numpy/core/fromnumeric.py:1305(any)
-  4064967   28.915    0.000   28.915    0.000 {method 'any' of 'numpy.ndarray' objects}
-     5043   14.459    0.003  561.507    0.111 PhaseStability.py:18(NonEqConstr)
-  2031618    7.960    0.000   22.175    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:76(real)
-   102735    3.036    0.000  201.352    0.002 PhaseStability.py:10(System)
-     1002    2.789    0.003   24.345    0.024 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:1131(fminbound)
-   102735    2.069    0.000   71.035    0.001 PhaseStability.py:6(Tieline)
-    31320    1.761    0.000   12.862    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/polynomial.py:99(roots)
-    31320    1.542    0.000    6.052    0.000 /usr/lib/python2.6/dist-packages/numpy/linalg/linalg.py:559(eigvals)
-    14970    1.134    0.000    8.880    0.001 vanDerWaals.py:16(vdWaalsPredict)
+   654382    6.354    0.000    6.354    0.000 GibbsClasses.py:22(deltaGmix)
+   416781    4.207    0.000    4.207    0.000 GibbsClasses.py:28(FirstDerivative)
+     2796    3.962    0.001   12.442    0.004 PhaseStability.py:18(NonEqConstr)
+     1002    2.813    0.003   24.148    0.024 /usr/lib/python2.6/dist-packages/scipy/optimize/optimize.py:1131(fminbound)
+   440899    2.657    0.000    2.657    0.000 {numpy.core.multiarray.array}
+    31320    1.744    0.000   12.685    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/polynomial.py:99(roots)
+    31320    1.511    0.000    5.957    0.000 /usr/lib/python2.6/dist-packages/numpy/linalg/linalg.py:559(eigvals)
+    14970    1.129    0.000    8.723    0.001 vanDerWaals.py:16(vdWaalsPredict)
+    16350    1.121    0.000   11.056    0.001 vanDerWaals.py:43(mError)
+    31320    0.890    0.000    1.402    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/twodim_base.py:204(diag)
+    98760    0.809    0.000    1.617    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/shape_base.py:253(atleast_1d)
+    44795    0.791    0.000    4.326    0.000 PhaseStability.py:10(System)
+    96768    0.785    0.000    0.785    0.000 {method 'all' of 'numpy.ndarray' objects}
+    62380    0.672    0.000    1.355    0.000 /usr/lib/python2.6/dist-packages/numpy/lib/type_check.py:162(isreal)
+    62640    0.663    0.000    0.663    0.000 {numpy.linalg.lapack_lite.dgeev}
+   219264    0.631    0.000    0.631    0.000 {numpy.core.multiarray.zeros}
+    31039    0.624    0.000    0.624    0.000 vanDerWaals.py:8(vdWaals)
+    16090    0.573    0.000    1.671    0.000 vanDerWaals.py:12(vdWaalsIntegral)
+330649/330483    0.518    0.000    0.519    0.000 {len}
+   128262    0.497    0.000    1.042    0.000 /usr/lib/python2.6/dist-packages/numpy/core/numeric.py:180(asarray)
 
 
