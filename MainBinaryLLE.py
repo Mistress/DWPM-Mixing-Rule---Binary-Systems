@@ -173,7 +173,7 @@ class Mixture:
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
             
-        [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.6),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-8, 1, 1, 10e-6)
+        [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 10e-6)
         
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
@@ -211,7 +211,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-0.01,-0.01),InitNRTL, InitUNIQUAC]
+    InitParams =[(-0.05,-0.05),InitNRTL, InitUNIQUAC]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
