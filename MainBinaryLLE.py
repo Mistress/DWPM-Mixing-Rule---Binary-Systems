@@ -53,7 +53,7 @@ class Mixture:
         h5file.close()
         self.Binaries = zeros((size(self.M['T']), 2))
     
-    def Plotter(self, BestParams, Model, Fit, ModelInstance, Actual, c, T):
+    def Plotter(self, BestParams, Model, ModelInstance, Actual, c, T):
        
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
@@ -73,11 +73,11 @@ class Mixture:
             ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1] ,AbsError), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
         #show()
-        savefig('Results/'+self.Name+'/'+Model+'/'+ Fit+'/T_'+str(T) +'.pdf')
+        savefig('Results/'+self.Name+'/'+Model+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
         
-        if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+Fit+'/'+self.Name +'.h5')):
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
+        if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+self.Name +'.h5')):
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
             if Model=='DWPM':                                             
                 table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
                 table.row['T'] = T
@@ -102,7 +102,7 @@ class Mixture:
                 table.flush()
                 h5file.close()
         else:
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+Fit+'/'+self.Name +'.h5', 'r+')
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'r+')
             table = h5file.root.Outputs
             if Model=='DWPM':                                             
                 table.row['T'] = T
@@ -136,7 +136,7 @@ class Mixture:
 
         return Error
     
-    def OptFunctionOvrlS(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
+    def OvrlOpt(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
 
         Errors = zeros(size(self.M['T']))
         ScaledInitParams = array(InitParams)/array(Scale)
@@ -158,34 +158,31 @@ class Mixture:
         
         OvrlError = sum(Errors**2)
 
-
         return OvrlError
   
     def BestFitParams(self,Model, ModelInstance, InitParams, Bounds, Scale):
 
-        Fit = 'IndividualT'
-        if not(path.exists('Results/'+self.Name+'/'+Model)):
-            mkdir('Results/'+self.Name+'/'+Model)        
-        if path.exists('Results/'+self.Name+'/'+Model+'/'+Fit):
-            fileList = listdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+        if path.exists('Results/'+self.Name+'/'+Model):
+            fileList = listdir('Results/'+self.Name+'/'+Model)
             for fn in fileList: 
-                remove(path.join('Results/'+self.Name+'/'+Model+'/'+Fit, fn))
+                remove(path.join('Results/'+self.Name+'/'+Model, fn))
         else:
-            mkdir('Results/'+self.Name+'/'+Model+'/'+Fit)
+            mkdir('Results/'+self.Name+'/'+Model)
             
-        [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionOvrlS, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 10e-6)
-        
+        if Model == "DWPM":
+            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OvrlOpt, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 10e-6)            
+        else:
+            Cell_s = ()
+       
+        self.OvrlOpt(Cell_s, ModelInstance, Scale, InitParams, Bounds)
+                
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
-            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, Fit, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
-        
-
+            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
 
         return  Cell_s
-   
-       
 
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
@@ -217,15 +214,12 @@ for file in listdir(MixtureDataDir):
         mkdir('Results/'+Optimization.Name)
 
     
-    #for i in arange(size(Models)):  
-    for i in arange(1):
+    for i in arange(size(Models)): 
         Name = '-'.join(Compounds)
-        if path.exists('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5'):
-            remove('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5') 
 
         Optimization.BestFitParams(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
 
-        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/IndividualT/'+Name +'.h5', 'r')
+        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
         PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
         PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
         PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
@@ -236,7 +230,7 @@ for file in listdir(MixtureDataDir):
         matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
         matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-        savefig('Results/'+Name+'/'+Models[i]+'/IndividualT/PhaseDiagram.pdf')
+        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
         matplotlib.pyplot.close()
 
        
