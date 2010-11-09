@@ -9,7 +9,6 @@ import tables
 import vanDerWaals
 import ErrorClasses
 import GibbsClasses
-import PhaseStability
 
 
 class ResultsFile1(tables.IsDescription):
@@ -52,12 +51,12 @@ class Mixture:
         [Slope, VPData] = self.vdWaalsInstance.BestFit()
         h5file.close()
         self.Binaries = zeros((size(self.M['T']), 2))
+        self.Predicted = zeros((size(self.M['T']), 2))
     
-    def Plotter(self, BestParams, Model, ModelInstance, Actual, c, T):
+    def Plotter(self, BestParams, TangentComps, Model, ModelInstance, Actual, c, T):
        
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
-        TangentComps = PhaseStability.CalcPhaseStability(ModelInstance, T, c, self.M)
         TangentGibbs = [ModelInstance.deltaGmix(x, T, c, self.M)for x in TangentComps]
         AbsError = ErrorClasses.SumAbs(TangentComps, Actual).Error()
         matplotlib.rc('text', usetex = True)
@@ -127,33 +126,62 @@ class Mixture:
                 h5file.close()
 
            
-    def OptFunctionIndvBinaries(self, Binaries, ModelInstance, Actual, T, c, Scale, Cell_s):
-        
+    def EqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+
+        Binaries = DesignVariables[2:]
+        x = DesignVariables[0:2]
         UnScaledParams = Binaries*Scale
+        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
         
-        Predicted = PhaseStability.CalcPhaseStability(ModelInstance(append(UnScaledParams,Cell_s)), T, c, self.M)
-        Error = ErrorClasses.SumAbs(Predicted ,Actual).Error()
+        SlopeGmix = ParamInstance.FirstDerivative(x[0], T, c, self.M)-ParamInstance.FirstDerivative(x[1], T, c,self.M)    
+        SlopeTangent = (ParamInstance.deltaGmix(x[0], T, c, self.M) - ParamInstance.deltaGmix(x[1], T, c, self.M))/(x[0]-x[1])
+        Tangent = SlopeTangent - ParamInstance.FirstDerivative(x[0], T, c, self.M)
+
+        return  reshape(array([SlopeGmix, Tangent]), -1)
+
+    def InEqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+
+        Binaries = DesignVariables[2:]
+        x = DesignVariables[0:2]
+        UnScaledParams = Binaries*Scale
+        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
+
+        TangentTest = array([((ParamInstance.FirstDerivative(x[0], T, c, self.M))*(comp - x[0])+ ParamInstance.deltaGmix(x[0], T, c, self.M))-ParamInstance.deltaGmix(comp, T, c, self.M) for comp in arange(0, 1.01, 0.01)])
+        DistinctTest = -1*array([abs(x[0]-x[1])-0.1])
+
+        return -1*(append(TangentTest, DistinctTest))
+
+        
+
+    def OptFunLLEBinaries(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+
+        Predicted = DesignVariables[0:2]
+        Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
 
         return Error
-    
-    def OvrlOpt(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
+        
+    def LLEBinaries(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
 
         Errors = zeros(size(self.M['T']))
         ScaledInitParams = array(InitParams)/array(Scale)
+        InitDesignVars = append(([0.01, 0.99]), ScaledInitParams)
+
         BoundsList = [array(item) for item in Bounds]
         ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
         ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
+        DesignVarBounds = [(0.0,1.0), (0.0, 1.0)]+ ScaledBounds
        
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
             
-            [Binaries, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunctionIndvBinaries, ScaledInitParams,[], None, [], None, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, array(Scale), Cell_s), 1000, 1e-8, 1, 1, 1e-6)
-            
+            [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, InitDesignVars,[], self.EqualConstraints, [], self.InEqualConstraints, DesignVarBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
+            print DesignVariables
             #ScaledInitParams = Binaries 
-            self.Binaries[where(self.M['T']==T),:] = Binaries*array(Scale)
-            
+            self.Binaries[where(self.M['T']==T),:] = DesignVariables[2:]*array(Scale)
+            self.Predicted[where(self.M['T']==T),:] = array(DesignVariables[0:2])
+                        
             Errors[where(self.M['T']==T)] = fx
         
         OvrlError = sum(Errors**2)
@@ -170,17 +198,18 @@ class Mixture:
             mkdir('Results/'+self.Name+'/'+Model)
             
         if Model == "DWPM":
-            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OvrlOpt, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 10e-6)            
+            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 1e-7)            
         else:
             Cell_s = ()
        
-        self.OvrlOpt(Cell_s, ModelInstance, Scale, InitParams, Bounds)
+        self.LLEBinaries(Cell_s, ModelInstance, Scale, InitParams, Bounds)
                 
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in self.Compounds]
-            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
+            
+            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), reshape(array(self.Predicted[where(self.M['T']==T),:]),-1),Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
 
         return  Cell_s
 
