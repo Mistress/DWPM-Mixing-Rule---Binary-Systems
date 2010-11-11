@@ -164,8 +164,7 @@ class Mixture:
 
         Errors = zeros(size(self.M['T']))
         ScaledInitParams = array(InitParams)/array(Scale)
-        InitDesignVars = append(([0.01, 0.99]), ScaledInitParams)
-
+        
         BoundsList = [array(item) for item in Bounds]
         ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
         ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
@@ -175,13 +174,18 @@ class Mixture:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
+
+            InitComp = Actual
+            InitDesignVars = append(InitComp, ScaledInitParams)
             
             [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, InitDesignVars,[], self.EqualConstraints, [], self.InEqualConstraints, DesignVarBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
             print DesignVariables
-            #ScaledInitParams = Binaries 
+
             self.Binaries[where(self.M['T']==T),:] = DesignVariables[2:]*array(Scale)
             self.Predicted[where(self.M['T']==T),:] = array(DesignVariables[0:2])
-                        
+            
+            ScaledInitParams = DesignVariables[2:]
+
             Errors[where(self.M['T']==T)] = fx
         
         OvrlError = sum(Errors**2)
@@ -219,7 +223,7 @@ ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
-Scale = ((15, 15), (4000, 4000), (4000, 4000))
+Scale = ((15, 15), (4000, 4000), (3800, 3800))
 
 R = 8.314
 
@@ -229,7 +233,8 @@ if not(path.exists('Results/')):
 
  
 
-for file in listdir(MixtureDataDir):
+# for file in listdir(MixtureDataDir):
+for file in ['methanol-heptane.h5']:
 
     h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
     Compounds = h5file.root.Compounds.read()
@@ -237,7 +242,7 @@ for file in listdir(MixtureDataDir):
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-0.05,-0.05),InitNRTL, InitUNIQUAC]
+    InitParams =[(-2.29,-1.857),(517.970,427.480), (4.388, 682.280)]
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
