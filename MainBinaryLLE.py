@@ -160,10 +160,9 @@ class Mixture:
 
         return Error
         
-    def LLEBinaries(self, Cell_s, ModelInstance, Scale, InitParams, Bounds):
+    def LLEBinaries(self, Cell_s, ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX):
 
         Errors = zeros(size(self.M['T']))
-        ScaledInitParams = array(InitParams)/array(Scale)
         
         BoundsList = [array(item) for item in Bounds]
         ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
@@ -174,25 +173,23 @@ class Mixture:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
-
-            InitComp = Actual
+                        
+            ScaledInitParams = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedParams[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedParams[:,1]))])/array(Scale)
+            InitComp = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,1]))])
             InitDesignVars = append(InitComp, ScaledInitParams)
             
             [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, InitDesignVars,[], self.EqualConstraints, [], self.InEqualConstraints, DesignVarBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
-            print DesignVariables
 
             self.Binaries[where(self.M['T']==T),:] = DesignVariables[2:]*array(Scale)
             self.Predicted[where(self.M['T']==T),:] = array(DesignVariables[0:2])
             
-            ScaledInitParams = DesignVariables[2:]
-
             Errors[where(self.M['T']==T)] = fx
         
         OvrlError = sum(Errors**2)
 
         return OvrlError
   
-    def BestFitParams(self,Model, ModelInstance, InitParams, Bounds, Scale):
+    def BestFitParams(self,Model, ModelInstance, Bounds, Scale, CalculatedParams, CalculatedX ):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -202,11 +199,11 @@ class Mixture:
             mkdir('Results/'+self.Name+'/'+Model)
             
         if Model == "DWPM":
-            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, InitParams, Bounds), 1000, 10e-5, 1, 1, 1e-7)            
+            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX), 1000, 10e-5, 1, 1, 1e-7)            
         else:
             Cell_s = ()
        
-        self.LLEBinaries(Cell_s, ModelInstance, Scale, InitParams, Bounds)
+        self.LLEBinaries(Cell_s, ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX)
                 
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
@@ -233,16 +230,15 @@ if not(path.exists('Results/')):
 
  
 
-# for file in listdir(MixtureDataDir):
-for file in ['methanol-heptane.h5']:
+for file in listdir(MixtureDataDir):
 
     h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
     Compounds = h5file.root.Compounds.read()
     InitUNIQUAC = tuple(h5file.root.DechemaParams.UNIQUAC.read()[:,0])
     InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
-    Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir) 
-    InitParams =[(-2.29,-1.857),(517.970,427.480), (4.388, 682.280)]
+
+    Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)
 
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
@@ -250,14 +246,21 @@ for file in ['methanol-heptane.h5']:
     
     for i in arange(size(Models)): 
         Name = '-'.join(Compounds)
+        print Models[i]
 
-        Optimization.BestFitParams(Models[i], ModelInstances[i], InitParams[i], Bounds[i], Scale[i])
+        h5file = tables.openFile('Resultfiles/'+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
+        CalculatedX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+        CalculatedParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
+        h5file.close()
+
+        Optimization.BestFitParams(Models[i], ModelInstances[i], Bounds[i], Scale[i], CalculatedParams, CalculatedX)
 
         h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
         PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
         PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
         PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
         h5file.close()
+
         matplotlib.rc('text', usetex = True)
         fig = matplotlib.pyplot.figure()
         matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
