@@ -51,7 +51,6 @@ class Mixture:
         [Slope, VPData] = self.vdWaalsInstance.BestFit()
         h5file.close()
         self.Binaries = zeros((size(self.M['T']), 2))
-        self.Predicted = zeros((size(self.M['T']), 2))
     
     def Plotter(self, BestParams, TangentComps, Model, ModelInstance, Actual, c, T):
        
@@ -77,119 +76,95 @@ class Mixture:
         
         if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+self.Name +'.h5')):
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
-            if Model=='DWPM':                                             
+            if Model=='DWPM':
                 table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
-                table.row['T'] = T
-                table.row['ModelParams'] = array(BestParams)
-                table.row['Predicted'] = TangentComps
-                table.row['Actual'] = Actual
-                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-                table.row['PureCompParams']  = reshape(array(c),-1)
-                table.row.append()
-                table.flush()
-                h5file.close()
             else:
                 table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
-                table.row['T'] = T
-                table.row['ModelParams'] = array(BestParams)
-                table.row['Predicted'] = TangentComps
-                table.row['Actual'] = Actual
-                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-                table.row.append()
-                table.flush()
-                h5file.close()
         else:
             h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'r+')
             table = h5file.root.Outputs
-            if Model=='DWPM':                                             
-                table.row['T'] = T
-                table.row['ModelParams'] = array(BestParams)
-                table.row['Predicted'] = TangentComps
-                table.row['Actual'] = Actual
-                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-                table.row['PureCompParams']  = reshape(array(c),-1)
-                table.row.append()
-                table.flush()
-                h5file.close()
-            else:             
-                table.row['T'] = T
-                table.row['ModelParams'] = array(BestParams)
-                table.row['Predicted'] = TangentComps
-                table.row['Actual'] = Actual
-                table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-                table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
-                table.row.append()
-                table.flush()
-                h5file.close()
+
+        table.row['T'] = T
+        table.row['ModelParams'] = array(BestParams)
+        table.row['Predicted'] = TangentComps
+        table.row['Actual'] = Actual
+        table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
+        table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
+        if Model=='DWPM':
+            table.row['PureCompParams']  = reshape(array(c),-1)
+        table.row.append()
+        table.flush()
+        h5file.close()
 
            
-    def EqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+##    def EqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+##
+##        UnScaledParams = DesignVariables*Scale
+##        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
 
-        Binaries = DesignVariables[2:]
-        x = DesignVariables[0:2]
-        UnScaledParams = Binaries*Scale
-        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
-        
-        SlopeGmix = ParamInstance.FirstDerivative(x[0], T, c, self.M)-ParamInstance.FirstDerivative(x[1], T, c,self.M)    
-        SlopeTangent = (ParamInstance.deltaGmix(x[0], T, c, self.M) - ParamInstance.deltaGmix(x[1], T, c, self.M))/(x[0]-x[1])
-        Tangent = SlopeTangent - ParamInstance.FirstDerivative(x[0], T, c, self.M)
+##        SlopeGmix = ParamInstance.FirstDerivative(Actual[0], T, c, self.M)-ParamInstance.FirstDerivative(Actual[1], T, c,self.M)    
+##        SlopeTangent = (ParamInstance.deltaGmix(Actual[0], T, c, self.M) - ParamInstance.deltaGmix(Actual[1], T, c, self.M))/(Actual[0]-Actual[1])
+##        Tangent = SlopeTangent - ParamInstance.FirstDerivative(Actual[0], T, c, self.M)
 
-        return  reshape(array([SlopeGmix, Tangent]), -1)
+##        return  reshape(array([SlopeGmix, Tangent]), -1)
 
-    def InEqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+##    def InEqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
 
-        Binaries = DesignVariables[2:]
-        x = DesignVariables[0:2]
-        UnScaledParams = Binaries*Scale
-        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
+##        UnScaledParams = DesignVariables*Scale
+##        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
 
-        TangentTest = array([((ParamInstance.FirstDerivative(x[0], T, c, self.M))*(comp - x[0])+ ParamInstance.deltaGmix(x[0], T, c, self.M))-ParamInstance.deltaGmix(comp, T, c, self.M) for comp in arange(0, 1.01, 0.01)])
-        DistinctTest = -1*array([abs(x[0]-x[1])-0.1])
+##        y0 = ParamInstance.deltaGmix(Actual[0], T, c, self.M)
+##        y1 = ParamInstance.deltaGmix(Actual[1], T, c, self.M)
+##        m = (y1 - y0)/(Actual[1]-Actual[0])
+##        c = y1 - m*Actual[1]
 
-        return -1*(append(TangentTest, DistinctTest))
+##        TangentTest = array([m*comp + c - ParamInstance.deltaGmix(comp, T, c, self.M) for comp in arange(0, 1.01, 0.01)])
 
-        
+##        return -1*(TangentTest)
 
     def OptFunLLEBinaries(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
-
-        Predicted = DesignVariables[0:2]
-        Error = ErrorClasses.SumSquare(Predicted ,Actual).Error()
-
-        return Error
         
-    def LLEBinaries(self, Cell_s, ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX):
+        UnScaledParams = DesignVariables*Scale
+        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
+
+        y0 = ParamInstance.deltaGmix(Actual[0], T, c, self.M)
+        y1 = ParamInstance.deltaGmix(Actual[1], T, c, self.M)
+        m = (y1 - y0)/(Actual[1]-Actual[0])
+        k = y1 - m*Actual[1]
+        
+        DiscDiffFunctionArray = array([ m*x + k - ParamInstance.deltaGmix(x, T, c, self.M) for x in arange(0.0, 1.1, 0.01)])
+        
+        return -1*DiscDiffFunctionArray.min() #times -1 for maximization, instead of minimization, in fmin in LLEBinaries
+    
+    def LLEBinaries(self, Cell_s, ModelInstance, Scale, Bounds, InitParams):
 
         Errors = zeros(size(self.M['T']))
         
         BoundsList = [array(item) for item in Bounds]
         ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
         ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
-        DesignVarBounds = [(0.0,1.0), (0.0, 1.0)]+ ScaledBounds
        
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
                         
-            ScaledInitParams = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedParams[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedParams[:,1]))])/array(Scale)
-            InitComp = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,1]))])
-            InitDesignVars = append(InitComp, ScaledInitParams)
+            ScaledInitParams = array(InitParams)/array(Scale)
+##            InitComp = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,1]))])
+##            InitDesignVars = append(InitComp, ScaledInitParams)
             
-            [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, InitDesignVars,[], self.EqualConstraints, [], self.InEqualConstraints, DesignVarBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
+##            [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, ScaledInitParams,[], self.EqualConstraints, [], self.InEqualConstraints, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
+            [Params, Min, direc, ItN, CallN, WarnN] = scipy.optimize.fmin_powell(self.OptFunLLEBinaries, ScaledInitParams,(ModelInstance, Actual, T, c, Scale, Cell_s), 1e-3, 1e-6, 10e10, 1e10, 1, 1, 0, None, None)
 
-            self.Binaries[where(self.M['T']==T),:] = DesignVariables[2:]*array(Scale)
-            self.Predicted[where(self.M['T']==T),:] = array(DesignVariables[0:2])
+            self.Binaries[where(self.M['T']==T),:] = Params*array(Scale)
             
-            Errors[where(self.M['T']==T)] = fx
+            Errors[where(self.M['T']==T)] = Min
         
         OvrlError = sum(Errors**2)
 
         return OvrlError
   
-    def BestFitParams(self,Model, ModelInstance, Bounds, Scale, CalculatedParams, CalculatedX ):
+    def BestFitParams(self,Model, ModelInstance, Bounds, Scale, InitParams ):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -199,20 +174,22 @@ class Mixture:
             mkdir('Results/'+self.Name+'/'+Model)
             
         if Model == "DWPM":
-            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX), 1000, 10e-5, 1, 1, 1e-7)            
+            Cell_s = (0.5, 0.5)
+##            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX), 1000, 10e-5, 1, 1, 1e-7)            
+## Only fit binaries to determine if "single function" approach will work or if need to distinguished between + and - areas 
         else:
             Cell_s = ()
        
-        self.LLEBinaries(Cell_s, ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX)
+        self.LLEBinaries(Cell_s, ModelInstance, Scale, Bounds, InitParams)
                 
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in self.Compounds]
+##        for T in self.M['T']:
+##            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+##            CompC = self.vdWaalsInstance.CompC(T)
+##            c = [CompC[Compound] for Compound in self.Compounds]
             
-            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), reshape(array(self.Predicted[where(self.M['T']==T),:]),-1),Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
+##            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), reshape(array(self.Predicted[where(self.M['T']==T),:]),-1),Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
 
-        return  Cell_s
+##        return  Cell_s
 
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
@@ -221,14 +198,12 @@ MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
+InitParams =((-8, -8), (300, 300), (300, 300))
 
 R = 8.314
 
 if not(path.exists('Results/')):
     mkdir('Results/')   
-
-
- 
 
 for file in listdir(MixtureDataDir):
 
@@ -243,32 +218,27 @@ for file in listdir(MixtureDataDir):
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
 
-    
     for i in arange(size(Models)): 
         Name = '-'.join(Compounds)
         print Models[i]
 
-        h5file = tables.openFile('Resultfiles/'+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
-        CalculatedX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-        CalculatedParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
-        h5file.close()
+        Optimization.BestFitParams(Models[i], ModelInstances[i], Bounds[i], Scale[i], InitParams[i])
 
-        Optimization.BestFitParams(Models[i], ModelInstances[i], Bounds[i], Scale[i], CalculatedParams, CalculatedX)
 
-        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
-        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-        PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
-        h5file.close()
+##        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
+##        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+##        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+##        PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
+##        h5file.close()
 
-        matplotlib.rc('text', usetex = True)
-        fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-        matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-        matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
-        matplotlib.pyplot.close()
+##        matplotlib.rc('text', usetex = True)
+##        fig = matplotlib.pyplot.figure()
+##        matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
+##        matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
+##        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+##        matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
+##        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
+##        matplotlib.pyplot.close()
 
        
 
