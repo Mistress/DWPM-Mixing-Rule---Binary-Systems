@@ -150,11 +150,9 @@ class Mixture:
             c = [CompC[Compound] for Compound in Compounds]
                         
             ScaledInitParams = array(InitParams)/array(Scale)
-##            InitComp = array([interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,0])),interp(T,cast['f'](self.M['T']), cast['f'](CalculatedX[:,1]))])
-##            InitDesignVars = append(InitComp, ScaledInitParams)
             
 ##            [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, ScaledInitParams,[], self.EqualConstraints, [], self.InEqualConstraints, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
-            [Params, Min, direc, ItN, CallN, WarnN] = scipy.optimize.fmin_powell(self.OptFunLLEBinaries, ScaledInitParams,(ModelInstance, Actual, T, c, Scale, Cell_s), 1e-3, 1e-6, 10e10, 1e10, 1, 1, 0, None, None)
+            [Params, Min, InfoDict] = scipy.optimize.fmin_l_bfgs_b(self.OptFunLLEBinaries, ScaledInitParams, None,(ModelInstance, Actual, T, c, Scale, Cell_s),1, ScaledBounds, 10, 1e5, 1e-5, 1e-8, 1, 1e10)
 
             self.Binaries[where(self.M['T']==T),:] = Params*array(Scale)
             
