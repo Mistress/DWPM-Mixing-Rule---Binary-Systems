@@ -4,6 +4,7 @@ from scipy import *
 from pylab import *
 from os import mkdir, path, remove, listdir
 import scipy.optimize
+import scipy.linalg
 import glob
 import tables
 import vanDerWaals
@@ -14,10 +15,7 @@ import GibbsClasses
 class ResultsFile1(tables.IsDescription):
     T = tables.Float64Col()
     ModelParams = tables.Float64Col(shape = (4)) 
-    Predicted = tables.Float64Col(shape = (2))
     Actual = tables.Float64Col(shape = (2))
-    SumSqrError = tables.Float64Col()
-    AbsError = tables.Float64Col(shape = (2))
     PureCompParams = tables.Float64Col(shape = (2))
 
 class ResultsFile2(tables.IsDescription):
@@ -52,21 +50,21 @@ class Mixture:
         h5file.close()
         self.Binaries = zeros((size(self.M['T']), 2))
     
-    def Plotter(self, BestParams, TangentComps, Model, ModelInstance, Actual, c, T):
+    def Plotter(self, Params, m, b, Cell_s, Model, ModelInstance, Actual, c, T):
        
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
-        TangentGibbs = [ModelInstance.deltaGmix(x, T, c, self.M)for x in TangentComps]
-        AbsError = ErrorClasses.SumAbs(TangentComps, Actual).Error()
+        Tieline = [m*x + b for x in arange(0.001, 1, 0.001)]
+        
         matplotlib.rc('text', usetex = True)
         fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(arange(0.001, 1, 0.001), deltaGibbsmix, 'b-',TangentComps, TangentGibbs, 'r-', Actual, ActualPlot, 'ko')
+        matplotlib.pyplot.plot(arange(0.001, 1, 0.001), deltaGibbsmix, 'b-', arange(0.001, 1, 0.001), Tieline, 'r-', Actual, ActualPlot, 'ko')
         matplotlib.pyplot.xlabel(r'Mole Fraction of '+self.Compounds[0].capitalize(), fontsize = 14)
         matplotlib.pyplot.ylabel(r'$\displaystyle\frac{\Delta G_{mix}}{RT}$', fontsize = 14)
-        matplotlib.pyplot.title(r'\textbf{Predicted Phase Equilibrium at %3.2f}'%T, fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Predicted $\displaystyle\frac{\Delta G_{mix}}{RT}$ %3.2f}'%T, fontsize = 14)
         ax = fig.add_axes([0,0,1,1])
         if Model == 'DWPM':
-            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1], BestParams[2], BestParams[3], AbsError), fontsize=12, transform=ax.transAxes)
+            ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.3f, %.3f'%(Model, Params[0], Params[1], Cell_s[0], Cell_s[1]), fontsize=12, transform=ax.transAxes)
         else:
             ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, Abslote Error(sum): %4.4e'%(Model,BestParams[0],BestParams[1] ,AbsError), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
@@ -85,84 +83,68 @@ class Mixture:
             table = h5file.root.Outputs
 
         table.row['T'] = T
-        table.row['ModelParams'] = array(BestParams)
-        table.row['Predicted'] = TangentComps
+        table.row['ModelParams'] = reshape(append(Params, Cell_s),-1)
         table.row['Actual'] = Actual
-        table.row['SumSqrError'] = ErrorClasses.SumSquare(TangentComps, Actual).Error()
-        table.row['AbsError'] = ErrorClasses.AbsError(TangentComps, Actual).Error()
         if Model=='DWPM':
             table.row['PureCompParams']  = reshape(array(c),-1)
+        else:
+            table.row['Predicted'] = TangentComps
+            table.row['SumSqrError'] = SumSqrError
+            table.row['AbsError'] = AbsError            
         table.row.append()
         table.flush()
         h5file.close()
 
-           
-##    def EqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
-##
-##        UnScaledParams = DesignVariables*Scale
-##        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
-
-##        SlopeGmix = ParamInstance.FirstDerivative(Actual[0], T, c, self.M)-ParamInstance.FirstDerivative(Actual[1], T, c,self.M)    
-##        SlopeTangent = (ParamInstance.deltaGmix(Actual[0], T, c, self.M) - ParamInstance.deltaGmix(Actual[1], T, c, self.M))/(Actual[0]-Actual[1])
-##        Tangent = SlopeTangent - ParamInstance.FirstDerivative(Actual[0], T, c, self.M)
-
-##        return  reshape(array([SlopeGmix, Tangent]), -1)
-
-##    def InEqualConstraints(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
-
-##        UnScaledParams = DesignVariables*Scale
-##        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
-
-##        y0 = ParamInstance.deltaGmix(Actual[0], T, c, self.M)
-##        y1 = ParamInstance.deltaGmix(Actual[1], T, c, self.M)
-##        m = (y1 - y0)/(Actual[1]-Actual[0])
-##        c = y1 - m*Actual[1]
-
-##        TangentTest = array([m*comp + c - ParamInstance.deltaGmix(comp, T, c, self.M) for comp in arange(0, 1.01, 0.01)])
-
-##        return -1*(TangentTest)
-
-    def OptFunLLEBinaries(self, DesignVariables, ModelInstance, Actual, T, c, Scale, Cell_s):
+    def SystemJac(self, Params, Actual, Cell_s):
         
-        UnScaledParams = DesignVariables*Scale
-        ParamInstance = ModelInstance(append(UnScaledParams, Cell_s))
+        A = Params[0]
+        B = Params[1]
+        m = Params[2]
+        b = Params[3]
 
-        y0 = ParamInstance.deltaGmix(Actual[0], T, c, self.M)
-        y1 = ParamInstance.deltaGmix(Actual[1], T, c, self.M)
-        m = (y1 - y0)/(Actual[1]-Actual[0])
-        k = y1 - m*Actual[1]
+        s1 = Cell_s[0]
+        s2 = Cell_s[1]
+
+        x1 = Actual[0]
+        x2 = 1.0 - Actual[0]
         
-        DiscDiffFunctionArray = array([ m*x + k - ParamInstance.deltaGmix(x, T, c, self.M) for x in arange(0.0, 1.1, 0.01)])
+        Row1 = [x1/s1, -x2/s2, -x1, -1.0]
+        Row3 = [-1/s1 + (x1/(s1*x2))*exp(-A), 1/s2 - (x2/(s2*x1))*exp(-B), -1, 0]
+
+        x1 = Actual[1]
+        x2 = 1.0 - Actual[1]
+
+        Row2 = [x1/s1, -x2/s2, -x1, -1.0]
+        Row4 = [-1/s1 + (x1/(s1*x2))*exp(-A), 1/s2 - (x2/(s2*x1))*exp(-B), -1, 0]
+
+        return array([Row1, Row2, Row3, Row4])
+
+
+    def System(self, Params, Actual, Cell_s):
         
-        return -1*DiscDiffFunctionArray.min() #times -1 for maximization, instead of minimization, in fmin in LLEBinaries
+        A = Params[0]
+        B = Params[1]
+        m = Params[2]
+        b = Params[3]
+        
+        s1 = Cell_s[0]
+        s2 = Cell_s[1]
+
+        x1 = Actual[0]
+        x2 = 1.0 - Actual[0]
+
+        Eq1 = (x1/s1)*A - (x2/s2)*B -m*x1 - b + x1*log(x1) + x2*log(x2)
+        Eq3 = (-1/s1)*A + x1/(s1*x2) - (x1/(s1*x2))*exp(-A) + (1/s2)*B - x2/(s2*x1) + (x2/(s2*x1))*exp(-B) - m
     
-    def LLEBinaries(self, Cell_s, ModelInstance, Scale, Bounds, InitParams):
+        x1 = Actual[1]
+        x2 = 1.0 - Actual[1]
 
-        Errors = zeros(size(self.M['T']))
-        
-        BoundsList = [array(item) for item in Bounds]
-        ScaledBoundsArrays = [BoundsList[i]/array(Scale)[i] for i in arange(size(Scale))]
-        ScaledBounds = [tuple(item) for item in ScaledBoundsArrays]
-       
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
-                        
-            ScaledInitParams = array(InitParams)/array(Scale)
-            
-##            [DesignVariables, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.OptFunLLEBinaries, ScaledInitParams,[], self.EqualConstraints, [], self.InEqualConstraints, ScaledBounds, None, None, None, (ModelInstance, Actual, T, c, Scale, Cell_s), 10000, 1e-6, 1, 1, 1e-8)
-            [Params, Min, InfoDict] = scipy.optimize.fmin_l_bfgs_b(self.OptFunLLEBinaries, ScaledInitParams, None,(ModelInstance, Actual, T, c, Scale, Cell_s),1, ScaledBounds, 10, 1e5, 1e-5, 1e-8, 1, 1e10)
+        Eq2 = (x1/s1)*A - (x2/s2)*B -m*x1 - b + x1*log(x1) + x2*log(x2)
+        Eq4 = (-1/s1)*A + x1/(s1*x2) - (x1/(s1*x2))*exp(-A) + (1/s2)*B - x2/(s2*x1) + (x2/(s2*x1))*exp(-B) - m
 
-            self.Binaries[where(self.M['T']==T),:] = Params*array(Scale)
-            
-            Errors[where(self.M['T']==T)] = Min
-        
-        OvrlError = sum(Errors**2)
+        return array([Eq1, Eq2, Eq3, Eq4])
 
-        return OvrlError
-  
-    def BestFitParams(self,Model, ModelInstance, Bounds, Scale, InitParams ):
+    def ParamCalc(self, Model, ModelInstance, InitParams):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -173,21 +155,53 @@ class Mixture:
             
         if Model == "DWPM":
             Cell_s = (0.5, 0.5)
-##            [Cell_s, fx, its, imode, smode] = scipy.optimize.fmin_slsqp(self.LLEBinaries, (0.5, 0.5),[], None, [], None, ((0.001,1), (0.001,1)), None, None, None, (ModelInstance, Scale, Bounds, CalculatedParams, CalculatedX), 1000, 10e-5, 1, 1, 1e-7)            
-## Only fit binaries to determine if "single function" approach will work or if need to distinguished between + and - areas 
         else:
             Cell_s = ()
-       
-        self.LLEBinaries(Cell_s, ModelInstance, Scale, Bounds, InitParams)
-                
-##        for T in self.M['T']:
-##            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-##            CompC = self.vdWaalsInstance.CompC(T)
-##            c = [CompC[Compound] for Compound in self.Compounds]
+        
+        for T in self.M['T']:
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = self.vdWaalsInstance.CompC(T)
+            c = [CompC[Compound] for Compound in Compounds]
             
-##            self.Plotter(append(self.Binaries[where(self.M['T']==T),:], Cell_s), reshape(array(self.Predicted[where(self.M['T']==T),:]),-1),Model, ModelInstance(append(self.Binaries[where(self.M['T']==T),:],Cell_s)), Actual, c, T)
+            x1 = Actual[0]
+            x2 = 1-Actual[0]
+            s1 = Cell_s[0]
+            s2 = Cell_s[1]
+            
+            MaxIter = 1000
+            TolParam = 1e-6
+            j = 1
+            Norm = 10
+            Paramj = array([float(log(x2*(InitParams[0]/c[0]) + x1)), float(log(x1*(InitParams[1]/c[1]) + x2)), 1., -2])
+            
+            while (j<MaxIter)and(Norm>TolParam):
+                f = self.System(Paramj, Actual, Cell_s)
+                J = self.SystemJac(Paramj, Actual, Cell_s)
+                Parami = Paramj
+                Delta = scipy.linalg.solve(J,-1*f)
+                Paramj = Parami + Delta
+                Norm = scipy.linalg.norm(Delta, inf)
+                j = j+1
 
-##        return  Cell_s
+            print(j)
+            print(Paramj)
+            A = Paramj[0]
+            B = Paramj[1]
+            m = Paramj[2]
+            b = Paramj[3]
+
+##          Do a check using Actual[1]-> Should give the same parameter values
+  
+            c12 = c[0]*exp((1/(s1*x2))*(exp(A) - x1))
+            c21 = c[1]*exp((1/(s2*x1))*(exp(B) - x2))
+
+            Params = array([c12, c21])
+            print Params
+            
+            ParamInstance = ModelInstance(append(Params, Cell_s))
+            self.Plotter(Params, m, b, Cell_s, Model, ParamInstance, Actual, c, T)
+
+        return Params
 
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
@@ -196,7 +210,7 @@ MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
-InitParams =((-8, -8), (300, 300), (300, 300))
+InitParams =((-8, -5), (300, 300), (300, 300))
 
 R = 8.314
 
@@ -207,8 +221,6 @@ for file in listdir(MixtureDataDir):
 
     h5file = tables.openFile(MixtureDataDir+'/'+file, 'r')
     Compounds = h5file.root.Compounds.read()
-    InitUNIQUAC = tuple(h5file.root.DechemaParams.UNIQUAC.read()[:,0])
-    InitNRTL = tuple(h5file.root.DechemaParams.NRTL.read()[:,0])
     h5file.close()
 
     Optimization = Mixture(Compounds, MixtureDataDir, PureDataDir)
@@ -216,12 +228,12 @@ for file in listdir(MixtureDataDir):
     if not(path.exists('Results/'+Optimization.Name)):
         mkdir('Results/'+Optimization.Name)
 
-    for i in arange(size(Models)): 
+##  for i in arange(size(Models)): 
+    for i in arange(1): 
         Name = '-'.join(Compounds)
         print Models[i]
 
-        Optimization.BestFitParams(Models[i], ModelInstances[i], Bounds[i], Scale[i], InitParams[i])
-
+        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParams[i])
 
 ##        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
 ##        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
