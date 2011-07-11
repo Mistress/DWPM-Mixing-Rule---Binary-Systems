@@ -97,50 +97,53 @@ class Mixture:
 
     def SystemJac(self, Params, Actual, Cell_s):
         
-        A = Params[0]
-        B = Params[1]
+        lambda_12 = Params[0]
+        lambda_21 = Params[1]
         m = Params[2]
         b = Params[3]
 
-        s1 = Cell_s[0]
-        s2 = Cell_s[1]
+        s_1 = Cell_s[0]
+        s_2 = Cell_s[1]
 
-        x1 = Actual[0]
-        x2 = 1.0 - Actual[0]
+        x = Actual[0]
+                
+        Row1 = [-lambda_12**(s_1-1)*(1-x)*x/(x+lambda_12**s_1*(1-x)), -lambda_21**(s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1), -x, -1.]
+        Row3 = [lambda_12**(s_1-1)*x/(x+lambda_12**s_1*(1-x))-lambda_12**(s_1-1)*(1-x)/(x+lambda_12**s_1*(1-x))+\
+        lambda_12**(s_1-1)*(1-lambda_12**s_1)*(1-x)*x/(x+lambda_12**s_1*(1-x))**2,\
+        lambda_21**(s_2-1)*x/(lambda_21**s_2*x-x+1)-lambda_21**(s_2-1)*(1-x)/(lambda_21**s_2*x-x+1)+\
+        lambda_21**(s_2-1)*(lambda_21**s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1)**2,-1., 0.]
+
+        x = Actual[1]
         
-        Row1 = [x1/s1, -x2/s2, -x1, -1.0]
-        Row3 = [-1/s1 + (x1/(s1*x2))*exp(-A), 1/s2 - (x2/(s2*x1))*exp(-B), -1, 0]
-
-        x1 = Actual[1]
-        x2 = 1.0 - Actual[1]
-
-        Row2 = [x1/s1, -x2/s2, -x1, -1.0]
-        Row4 = [-1/s1 + (x1/(s1*x2))*exp(-A), 1/s2 - (x2/(s2*x1))*exp(-B), -1, 0]
+        Row2 = [-lambda_12**(s_1-1)*(1-x)*x/(x+lambda_12**s_1*(1-x)), -lambda_21**(s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1), -x, -1.]
+        Row4 = [lambda_12**(s_1-1)*x/(x+lambda_12**s_1*(1-x))-lambda_12**(s_1-1)*(1-x)/(x+lambda_12**s_1*(1-x))+\
+        lambda_12**(s_1-1)*(1-lambda_12**s_1)*(1-x)*x/(x+lambda_12**s_1*(1-x))**2,\
+        lambda_21**(s_2-1)*x/(lambda_21**s_2*x-x+1)-lambda_21**(s_2-1)*(1-x)/(lambda_21**s_2*x-x+1)+\
+        lambda_21**(s_2-1)*(lambda_21**s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1)**2,-1., 0.]
 
         return array([Row1, Row2, Row3, Row4])
 
-
     def System(self, Params, Actual, Cell_s):
         
-        A = Params[0]
-        B = Params[1]
+        lambda_12 = Params[0]
+        lambda_21 = Params[1]
         m = Params[2]
         b = Params[3]
         
-        s1 = Cell_s[0]
-        s2 = Cell_s[1]
+        s_1 = Cell_s[0]
+        s_2 = Cell_s[1]
 
-        x1 = Actual[0]
-        x2 = 1.0 - Actual[0]
+        x = Actual[0]
+        
+        Eq1 = -(1-x)*log(lambda_21**s_2*x-x+1)/s_2-x*log(x+lambda_12**s_1*(1-x))/s_1+x*log(x)-m*x+log(1-x)*(1-x)-b
+        Eq3 = log(lambda_21**s_2*x-x+1)/s_2-log(x+lambda_12**s_1*(1-x))/s_1+log(x)-(lambda_21**s_2-1)*(1-x)/(s_2*(lambda_21**s_2*x-x+1))\
+            -(1-lambda_12**s_1)*x/(s_1*(x+lambda_12**s_1*(1-x)))-log(1-x)-m
 
-        Eq1 = (x1/s1)*A - (x2/s2)*B -m*x1 - b + x1*log(x1) + x2*log(x2)
-        Eq3 = (-1/s1)*A + x1/(s1*x2) - (x1/(s1*x2))*exp(-A) + (1/s2)*B - x2/(s2*x1) + (x2/(s2*x1))*exp(-B) - m
-    
-        x1 = Actual[1]
-        x2 = 1.0 - Actual[1]
-
-        Eq2 = (x1/s1)*A - (x2/s2)*B -m*x1 - b + x1*log(x1) + x2*log(x2)
-        Eq4 = (-1/s1)*A + x1/(s1*x2) - (x1/(s1*x2))*exp(-A) + (1/s2)*B - x2/(s2*x1) + (x2/(s2*x1))*exp(-B) - m
+        x = Actual[1]
+        
+        Eq2 =  -(1-x)*log(lambda_21**s_2*x-x+1)/s_2-x*log(x+lambda_12**s_1*(1-x))/s_1+x*log(x)-m*x+log(1-x)*(1-x)-b
+        Eq4 = log(lambda_21**s_2*x-x+1)/s_2-log(x+lambda_12**s_1*(1-x))/s_1+log(x)-(lambda_21**s_2-1)*(1-x)/(s_2*(lambda_21**s_2*x-x+1))\
+            -(1-lambda_12**s_1)*x/(s_1*(x+lambda_12**s_1*(1-x)))-log(1-x)-m
 
         return array([Eq1, Eq2, Eq3, Eq4])
 
@@ -162,38 +165,44 @@ class Mixture:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
-            
-            x1 = Actual[0]
-            x2 = 1-Actual[0]
-            s1 = Cell_s[0]
-            s2 = Cell_s[1]
-            
-            MaxIter = 1000
-            TolParam = 1e-6
-            j = 1
-            Norm = 10
-            Paramj = array([float(log(x2*(InitParams[0]/c[0]) + x1)), float(log(x1*(InitParams[1]/c[1]) + x2)), 1., -2])
-            
-            while (j<MaxIter)and(Norm>TolParam):
-                f = self.System(Paramj, Actual, Cell_s)
-                J = self.SystemJac(Paramj, Actual, Cell_s)
-                Parami = Paramj
-                Delta = scipy.linalg.solve(J,-1*f)
-                Paramj = Parami + Delta
-                Norm = scipy.linalg.norm(Delta, inf)
-                j = j+1
 
-            print(j)
-            print(Paramj)
-            A = Paramj[0]
-            B = Paramj[1]
+            InitParamj =  append(InitParams[0]/c[0],append(InitParams[1]/c[1],[1., -5.]))                                
+
+            MaxFEval = 1000
+            TolParam = 1e-6
+
+            [Paramj, infodict, Nit, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+            print Mesg
+            print infodict['nfev']
+            print infodict['njev']
+            print infodict['fvec']
+            print infodict['fjac']
+        
+##            j = 1
+##            Norm = 10
+##            Paramj = array([InitParams[0]/c[0], InitParams[1]/c[1], 1., -2.])
+       
+##            while (j<MaxIter)and(Norm>TolParam):
+##                f = self.System(Paramj, Actual, Cell_s)
+##                J = self.SystemJac(Paramj, Actual, Cell_s)
+##                Parami = Paramj
+##                Delta = scipy.linalg.solve(J,-1*f)
+##                Paramj = Parami + Delta
+##                Norm = scipy.linalg.norm(Delta, inf)
+##                j = j+1
+
+##            print(j)
+##            print(Paramj)
+
+            lambda_12 = Paramj[0]
+            lambda_21 = Paramj[1]
             m = Paramj[2]
             b = Paramj[3]
 
 ##          Do a check using Actual[1]-> Should give the same parameter values
   
-            c12 = c[0]*exp((1/(s1*x2))*(exp(A) - x1))
-            c21 = c[1]*exp((1/(s2*x1))*(exp(B) - x2))
+            c12 = c[0]*lambda_12
+            c21 = c[1]*lambda_21
 
             Params = array([c12, c21])
             print Params
@@ -210,7 +219,8 @@ MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
-InitParams =((-8, -5), (300, 300), (300, 300))
+InitParams =((-9, -1), (300, 300), (300, 300))
+#InitParams =((-1/22.5, -1/618.4), (300, 300), (300, 300))
 
 R = 8.314
 
