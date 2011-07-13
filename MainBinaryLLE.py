@@ -147,7 +147,7 @@ class Mixture:
 
         return array([Eq1, Eq2, Eq3, Eq4])
 
-    def ParamCalc(self, Model, ModelInstance, InitParams):
+    def ParamCalc(self, Model, ModelInstance, InitParamsLimit):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -160,24 +160,34 @@ class Mixture:
             Cell_s = (0.5, 0.5)
         else:
             Cell_s = ()
-        
+
+        InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
+        InitParamj = append(append(InitParams, 1.), -2.)         
+                        
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
 
-            InitParamj =  append(InitParams[0]/c[0],append(InitParams[1]/c[1],[1., -5.]))                                
-
             MaxFEval = 1000
             TolParam = 1e-6
+            Converge = 0
+            NStarts = 1
+            MaxNStarts = 100
 
-            [Paramj, infodict, Nit, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
-            print Mesg
-            print infodict['nfev']
-            print infodict['njev']
-            print infodict['fvec']
-            print infodict['fjac']
-        
+            while (Converge!=1):
+                print InitParamj
+                
+                [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                print Mesg
+                NFCalls = infodict['nfev']
+                NJCalls = infodict['njev']
+                NStarts = NStarts + 1
+                InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
+                InitParamj = append(append(InitParams, -1.), -2.)                                
+
+            InitParams = Paramj
+                                        
 ##            j = 1
 ##            Norm = 10
 ##            Paramj = array([InitParams[0]/c[0], InitParams[1]/c[1], 1., -2.])
@@ -198,15 +208,12 @@ class Mixture:
             lambda_21 = Paramj[1]
             m = Paramj[2]
             b = Paramj[3]
-
-##          Do a check using Actual[1]-> Should give the same parameter values
   
             c12 = c[0]*lambda_12
             c21 = c[1]*lambda_21
 
             Params = array([c12, c21])
-            print Params
-            
+                        
             ParamInstance = ModelInstance(append(Params, Cell_s))
             self.Plotter(Params, m, b, Cell_s, Model, ParamInstance, Actual, c, T)
 
@@ -219,9 +226,8 @@ MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
-InitParams =((-9, -1), (300, 300), (300, 300))
+InitParamsLimit =((-0.1, -0.0001), (300, 300), (300, 300))
 #InitParams =((-1/22.5, -1/618.4), (300, 300), (300, 300))
-
 R = 8.314
 
 if not(path.exists('Results/')):
@@ -243,12 +249,11 @@ for file in listdir(MixtureDataDir):
         Name = '-'.join(Compounds)
         print Models[i]
 
-        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParams[i])
+        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i])
 
 ##        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
 ##        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
 ##        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-##        PlotPredX = array([row['Predicted'] for row in h5file.root.Outputs.iterrows()])
 ##        h5file.close()
 
 ##        matplotlib.rc('text', usetex = True)
