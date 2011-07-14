@@ -160,33 +160,38 @@ class Mixture:
             Cell_s = (0.5, 0.5)
         else:
             Cell_s = ()
-
-        InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
-        InitParamj = append(append(InitParams, 1.), -2.)         
+            
+        InitParams = (InitParamsLimit[0]-InitParamsLimit[1])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
+        InitParamj = append(InitParams, array([1., -5.]))       
                         
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = [CompC[Compound] for Compound in Compounds]
-
+           
             MaxFEval = 1000
-            TolParam = 1e-6
-            Converge = 0
+            TolParam = 1e-4
+            Converge = 3
             NStarts = 1
-            MaxNStarts = 100
+            MaxNStarts = 10000
 
-            while (Converge!=1):
-                print InitParamj
+            while (Converge!=1 and NStarts<MaxNStarts):
+                          
+                      # print InitParamj
                 
-                [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
-                print Mesg
-                NFCalls = infodict['nfev']
-                NJCalls = infodict['njev']
-                NStarts = NStarts + 1
-                InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
-                InitParamj = append(append(InitParams, -1.), -2.)                                
+                      [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                      print Mesg
+                      NFCalls = infodict['nfev']
+                      NJCalls = infodict['njev']
+                      NStarts = NStarts + 1
+                      
+                      InitParams = (InitParamsLimit[0]-InitParamsLimit[1])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
+                      InitParamj = append(InitParams, array([1., -5.]))  
+                      print InitParamj
 
-            InitParams = Paramj
+                      
+            print NStarts
+            InitParamj = Paramj
                                         
 ##            j = 1
 ##            Norm = 10
@@ -226,7 +231,7 @@ MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
-InitParamsLimit =((-0.1, -0.0001), (300, 300), (300, 300))
+InitParamsLimit =((0.00, -0.15), (300, 300), (300, 300))
 #InitParams =((-1/22.5, -1/618.4), (300, 300), (300, 300))
 R = 8.314
 
