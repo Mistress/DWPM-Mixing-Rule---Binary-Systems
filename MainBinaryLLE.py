@@ -10,6 +10,7 @@ import tables
 import vanDerWaals
 import ErrorClasses
 import GibbsClasses
+import AnalyticSystemsClasses
 
 
 class ResultsFile1(tables.IsDescription):
@@ -95,58 +96,6 @@ class Mixture:
         table.flush()
         h5file.close()
 
-    def SystemJac(self, Params, Actual, Cell_s):
-        
-        lambda_12 = Params[0]
-        lambda_21 = Params[1]
-        m = Params[2]
-        b = Params[3]
-
-        s_1 = Cell_s[0]
-        s_2 = Cell_s[1]
-
-        x = Actual[0]
-                
-        Row1 = [-lambda_12**(s_1-1)*(1-x)*x/(x+lambda_12**s_1*(1-x)), -lambda_21**(s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1), -x, -1.]
-        Row3 = [lambda_12**(s_1-1)*x/(x+lambda_12**s_1*(1-x))-lambda_12**(s_1-1)*(1-x)/(x+lambda_12**s_1*(1-x))+\
-        lambda_12**(s_1-1)*(1-lambda_12**s_1)*(1-x)*x/(x+lambda_12**s_1*(1-x))**2,\
-        lambda_21**(s_2-1)*x/(lambda_21**s_2*x-x+1)-lambda_21**(s_2-1)*(1-x)/(lambda_21**s_2*x-x+1)+\
-        lambda_21**(s_2-1)*(lambda_21**s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1)**2,-1., 0.]
-
-        x = Actual[1]
-        
-        Row2 = [-lambda_12**(s_1-1)*(1-x)*x/(x+lambda_12**s_1*(1-x)), -lambda_21**(s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1), -x, -1.]
-        Row4 = [lambda_12**(s_1-1)*x/(x+lambda_12**s_1*(1-x))-lambda_12**(s_1-1)*(1-x)/(x+lambda_12**s_1*(1-x))+\
-        lambda_12**(s_1-1)*(1-lambda_12**s_1)*(1-x)*x/(x+lambda_12**s_1*(1-x))**2,\
-        lambda_21**(s_2-1)*x/(lambda_21**s_2*x-x+1)-lambda_21**(s_2-1)*(1-x)/(lambda_21**s_2*x-x+1)+\
-        lambda_21**(s_2-1)*(lambda_21**s_2-1)*(1-x)*x/(lambda_21**s_2*x-x+1)**2,-1., 0.]
-
-        return array([Row1, Row2, Row3, Row4])
-
-    def System(self, Params, Actual, Cell_s):
-        
-        lambda_12 = Params[0]
-        lambda_21 = Params[1]
-        m = Params[2]
-        b = Params[3]
-        
-        s_1 = Cell_s[0]
-        s_2 = Cell_s[1]
-
-        x = Actual[0]
-        
-        Eq1 = -(1-x)*log(lambda_21**s_2*x-x+1)/s_2-x*log(x+lambda_12**s_1*(1-x))/s_1+x*log(x)-m*x+log(1-x)*(1-x)-b
-        Eq3 = log(lambda_21**s_2*x-x+1)/s_2-log(x+lambda_12**s_1*(1-x))/s_1+log(x)-(lambda_21**s_2-1)*(1-x)/(s_2*(lambda_21**s_2*x-x+1))\
-            -(1-lambda_12**s_1)*x/(s_1*(x+lambda_12**s_1*(1-x)))-log(1-x)-m
-
-        x = Actual[1]
-        
-        Eq2 =  -(1-x)*log(lambda_21**s_2*x-x+1)/s_2-x*log(x+lambda_12**s_1*(1-x))/s_1+x*log(x)-m*x+log(1-x)*(1-x)-b
-        Eq4 = log(lambda_21**s_2*x-x+1)/s_2-log(x+lambda_12**s_1*(1-x))/s_1+log(x)-(lambda_21**s_2-1)*(1-x)/(s_2*(lambda_21**s_2*x-x+1))\
-            -(1-lambda_12**s_1)*x/(s_1*(x+lambda_12**s_1*(1-x)))-log(1-x)-m
-
-        return array([Eq1, Eq2, Eq3, Eq4])
-
     def ParamCalc(self, Model, ModelInstance, InitParamsLimit):
 
         if path.exists('Results/'+self.Name+'/'+Model):
@@ -158,11 +107,12 @@ class Mixture:
             
         if Model == "DWPM":
             Cell_s = (0.3, 0.8)
+            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
         else:
             Cell_s = ()
-            
+
         InitParams = (InitParamsLimit[0]-InitParamsLimit[1])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
-        InitParamj = append(InitParams, array([1., -5.]))       
+        InitParamj = append(InitParams, array([1., -5.]))      
                         
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
@@ -176,10 +126,8 @@ class Mixture:
             MaxNStarts = 10000
 
             while (Converge!=1 and NStarts<MaxNStarts):
-                          
-                      # print InitParamj
-                
-                      [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(self.System, InitParamj, (Actual, Cell_s), self.SystemJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                                  
+                      [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamj, (Actual), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
                       print Mesg
                       NFCalls = infodict['nfev']
                       NJCalls = infodict['njev']
@@ -187,28 +135,10 @@ class Mixture:
                       
                       InitParams = (InitParamsLimit[0]-InitParamsLimit[1])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
                       InitParamj = append(InitParams, array([1., -5.]))  
-                      print InitParamj
-
                       
             print NStarts
             InitParamj = Paramj
                                         
-##            j = 1
-##            Norm = 10
-##            Paramj = array([InitParams[0]/c[0], InitParams[1]/c[1], 1., -2.])
-       
-##            while (j<MaxIter)and(Norm>TolParam):
-##                f = self.System(Paramj, Actual, Cell_s)
-##                J = self.SystemJac(Paramj, Actual, Cell_s)
-##                Parami = Paramj
-##                Delta = scipy.linalg.solve(J,-1*f)
-##                Paramj = Parami + Delta
-##                Norm = scipy.linalg.norm(Delta, inf)
-##                j = j+1
-
-##            print(j)
-##            print(Paramj)
-
             lambda_12 = Paramj[0]
             lambda_21 = Paramj[1]
             m = Paramj[2]
@@ -232,7 +162,6 @@ PureDataDir = 'Data/PureComps'
 Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
 InitParamsLimit =((0.00, -0.15), (300, 300), (300, 300))
-#InitParams =((-1/22.5, -1/618.4), (300, 300), (300, 300))
 R = 8.314
 
 if not(path.exists('Results/')):
@@ -256,21 +185,19 @@ for file in listdir(MixtureDataDir):
 
         Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i])
 
-##        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
-##        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-##        PlotExpX = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
-##        h5file.close()
+        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
+        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+        PlotParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
+        PlotPureParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
+        PlotLambda = PlotParams[:,:2]/PlotPureParams
+        h5file.close()
 
-##        matplotlib.rc('text', usetex = True)
-##        fig = matplotlib.pyplot.figure()
-##        matplotlib.pyplot.plot(PlotPredX, PlotT, 'r-', PlotExpX, PlotT, 'ko')
-##        matplotlib.pyplot.xlabel(r'Mole Fraction of '+Compounds[0].capitalize(), fontsize = 14)
-##        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-##        matplotlib.pyplot.title(r'\textbf{Predicted Phase Diagram}', fontsize = 14)
-##        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
-##        matplotlib.pyplot.close()
-
-       
-
-
-   
+        matplotlib.rc('text', usetex = True)
+        fig = matplotlib.pyplot.figure()
+        matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro', PlotT, PlotPureParams[:,:1], 'ko', PlotT, PlotPureParams[:,1:2], 'ko',\
+PlotT, PlotLambda[:,:1], 'r*', PlotT, PlotLambda[:,1:2], 'r*')
+##        matplotlib.pyplot.ylabel(r'Parameters for '+self.Name.capitalize(), fontsize = 14)
+        matplotlib.pyplot.xlabel(r'Temperature', fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Parameters for '+Optimization.Name.capitalize()+'}', fontsize = 14)
+        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
+        matplotlib.pyplot.close()

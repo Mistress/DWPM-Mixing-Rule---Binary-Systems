@@ -4,8 +4,6 @@ from scipy import *
 import scipy.optimize
 import GibbsFunctions
 
-
-
 class Model:
     R = 8.314
     name = 'Generic'
@@ -30,7 +28,7 @@ class DWPM(Model):
         dGmix_dx = GibbsFunctions.gibbsfunctions.d_dwpm_dx(x, self.s1, self.s2, self.c12, self.c21, c)
         
         return dGmix_dx
-    
+ 
 class NRTL(Model):
     def __init__(self, param):
         self.name = 'NRTL'
