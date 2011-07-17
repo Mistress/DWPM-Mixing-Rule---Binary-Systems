@@ -157,7 +157,7 @@ class Mixture:
             mkdir('Results/'+self.Name+'/'+Model)
             
         if Model == "DWPM":
-            Cell_s = (0.5, 0.5)
+            Cell_s = (0.3, 0.8)
         else:
             Cell_s = ()
             
