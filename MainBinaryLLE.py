@@ -91,7 +91,7 @@ class Mixture:
         table.flush()
         h5file.close()
 
-    def ParamCalc(self, Model, ModelInstance, InitParamsLimit, R):
+    def ParamCalc(self, Model, ModelParamsInstance, InitParamsLimit, Bounds, R):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -122,7 +122,7 @@ class Mixture:
             c = [CompC[Compound] for Compound in Compounds]
            
             MaxFEval = 1000
-            TolParam = 1e-6
+            TolParam = 1e-4
             Converge = 3
             NStarts = 1
             MaxNStarts = 10000
@@ -130,13 +130,16 @@ class Mixture:
             while (Converge!=1 and NStarts<MaxNStarts):
                                   
                       [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamj, (Actual, R, T), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
-                      print Mesg
+                     ## print Mesg
                       NFCalls = infodict['nfev']
                       NJCalls = infodict['njev']
                       NStarts = NStarts + 1
                       
+                      if (Paramj[3]>0.01) or not(Bounds[0]<= Paramj[0]<=Bounds[1]) or not(Bounds[0]<= Paramj[1]<=Bounds[1]):
+                          Converge = 3
+                      
                       InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
-                      InitParamj = append(InitParams, array([1., -5.]))  
+                      InitParamj = append(InitParams, array([-1., -5.]))  
                       
             print NStarts
             print Paramj
@@ -154,19 +157,68 @@ class Mixture:
                             
             Params = array([c12, c21])
                         
-            ParamInstance = ModelInstance(append(Params, Cell_s))
+            ParamInstance = ModelParamsInstance(append(Params, Cell_s))
             self.Plotter(Params, m, b, Cell_s, Model, ParamInstance, Actual, c, T, Converge)
 
         return Params
 
+    def PhaseDiagramCalc(self, Model, ModelPhaseInstance, R):
+
+        if Model == "DWPM":
+            Cell_s = (0.3, 0.8)
+            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
+        elif Model == "NRTL":
+            Cell_s = ()
+            alpha = 0.2
+            System = AnalyticSystemsClasses.SystemNRTL(alpha)
+        elif Model == "UNIQUAC":
+            Cell_s = ()
+            z = 10
+            System = AnalyticSystemsClasses.SystemUNIQUAC(self.M, z)
+
+            
+        InitPhase = array([0.1, 0.9, -1, -4])
+                        
+        for T in self.M['T']:
+            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
+            CompC = self.vdWaalsInstance.CompC(T)
+            c = [CompC[Compound] for Compound in Compounds]
+           
+            MaxFEval = 1000
+            TolPhase = 1e-4
+            Converge = 3
+            NStarts = 1
+            MaxNStarts = 10000
+
+            while (Converge!=1 and NStarts<MaxNStarts):
+                                  
+                      [Phase, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitPhase, (Params, R, T), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                      print Mesg
+                      NFCalls = infodict['nfev']
+                      NJCalls = infodict['njev']
+                      NStarts = NStarts + 1
+                      
+                      InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
+                      InitParamj = append(InitParams, array([1., -5.]))  
+                      
+            print NStarts
+            print Paramj
+            InitParamj = Paramj
+
+            Predicted[0] = Phase[0]
+            Predicted[1] = Phase[1]
+            m = Paramj[2]
+            b = Paramj[3]
+            
+                                    
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = [((-15, 0.001), (-15, 0.001)), ((-1000, 3000), (-1000, 3000)), ((-800, 3000), (-800, 3000))]
+Bounds = ((0.00, 100), (-1000, 3000), (-800, 3000))
 Scale = ((15, 15), (4000, 4000), (3800, 3800))
-InitParamsLimit =((0.00, 0.15), (-100., 1200.), (-800., 3000.))
+InitParamsLimit =((0.00, 0.15), (-100., 1000.), (-800., 3000.))
 R = 8.314
 
 if not(path.exists('Results/')):
@@ -188,7 +240,7 @@ for file in listdir(MixtureDataDir):
         Name = '-'.join(Compounds)
         print Models[i]
 
-        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], R)
+        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R)
 
         h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
         PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
