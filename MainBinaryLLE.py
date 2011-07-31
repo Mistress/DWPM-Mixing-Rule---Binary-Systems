@@ -5,6 +5,8 @@ from pylab import *
 from os import mkdir, path, remove, listdir
 import scipy.optimize
 import scipy.linalg
+import scipy.interpolate 
+
 import glob
 import tables
 import vanDerWaals
@@ -129,8 +131,8 @@ class Mixture:
                       InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
                       InitParamj = append(InitParams, array([-1., -5.]))  
                       
-            print NStarts
-            print Paramj
+            ##print NStarts
+            ##print Paramj
             InitParamj = Paramj
                                         
             m = Paramj[2]
@@ -167,7 +169,7 @@ class Mixture:
         
         while (Converge!=1 and NStarts<MaxNStarts):
             
-            InitPhase = append(array([0.1, -0.1])*random(2)+array([0.0, 1.0]), array([-1., -0.2]))
+            InitPhase = append(array([0.1, -0.1])*random(2)+array([0.0, 1.0]), array([-2., -3]))
                         
             [Phase, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitPhase, (Params, R, T), System.SystemEquationsJac, 1, 0, TolPhase, MaxFEval, None, 0.0, 100, None)
             
@@ -175,11 +177,12 @@ class Mixture:
             NJCalls = infodict['njev']
             NStarts = NStarts + 1
             
-            if (Phase[3]>0.01) or not(0.0 <= Phase[0]<=1.0) or not(0.0 <= Phase[1]<= 1.0):
+            if (Phase[3]>0.01) or not(0.0 <= Phase[0]<=1.0) or not(0.0 <= Phase[1]<= 1.0) or (abs(Phase[0]-Phase[1])<0.1):
                 Converge = 3
-                                            
-        print NStarts
-        print Phase
+        
+        print Mesg
+        ##print NStarts
+        ##print Phase
         InitPhase = Phase
 
         Predicted1 = Phase[0]
@@ -258,10 +261,20 @@ for file in listdir(MixtureDataDir):
         savefig('Results/'+Name+'/'+Models[i]+'/VariationOfParameters.pdf')
         matplotlib.pyplot.close()
 
-        Predicted = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([interp(T, PlotT, PlotParams[:,0]), interp(T, PlotT, PlotParams[:,1])]), R, T) for T in PlotT])
+        LinearParams1 = scipy.interpolate.interp1d(PlotT, PlotParams[:,0])
+        LinearParams2 = scipy.interpolate.interp1d(PlotT, PlotParams[:,1])
+        
+      ##  CubicParams1 = scipy.interpolate.interp1d(PlotT, PlotParams[:,0], kind = 'cubic')
+      ##  CubicParams2 = scipy.interpolate.interp1d(PlotT, PlotParams[:,1], kind = 'cubic')
+
+        InterpT = linspace(PlotT[0], PlotT[-1], 10)
+        
+        PredictedLinear = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([LinearParams1(T), LinearParams2(T)]), R, T) for T in InterpT])
+      ##  PredictedCubic = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([CubicParams1(T), CubicParams2(T)]), R, T) for T in InterpT])
 
         fig = matplotlib.pyplot.figure()
-        matplotlib.pyplot.plot(Predicted[:,:1], PlotT, 'ro', Predicted[:,1:2], PlotT, 'ro', PlotActual[:,:1], PlotT, '-', PlotActual[:,1:2], PlotT, '-')
+      ##  matplotlib.pyplot.plot(PredictedLinear[:,:1], InterpT, 'r--', PredictedLinear[:,1:2], InterpT, 'r--', PredictedCubic[:,:1], InterpT, 'c-.', PredictedLinear[:,1:2], InterpT, 'c-.', PlotActual[:,:1], PlotT, 'ko', PlotActual[:,1:2], PlotT, 'ko')
+        matplotlib.pyplot.plot(PredictedLinear[:,:1], InterpT, 'r--', PredictedLinear[:,1:2], InterpT, 'r--', PlotActual[:,:1], PlotT, 'ko', PlotActual[:,1:2], PlotT, 'ko')
         matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
         matplotlib.pyplot.xlabel(r'Composition', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Phase diagram for '+Optimization.Name.capitalize()+'}', fontsize = 14)
