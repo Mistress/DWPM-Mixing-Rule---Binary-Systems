@@ -11,6 +11,7 @@ import vanDerWaals
 import ErrorClasses
 import GibbsClasses
 import AnalyticSystemsClasses
+import AnalyticPhaseCompSystemsClasses
 
 
 class ResultsFile1(tables.IsDescription):
@@ -91,7 +92,7 @@ class Mixture:
         table.flush()
         h5file.close()
 
-    def ParamCalc(self, Model, ModelParamsInstance, InitParamsLimit, Bounds, R):
+    def ParamCalc(self, Model, ModelParamsInstance, InitParamsLimit, Bounds, R, System):
 
         if path.exists('Results/'+self.Name+'/'+Model):
             fileList = listdir('Results/'+self.Name+'/'+Model)
@@ -99,20 +100,7 @@ class Mixture:
                 remove(path.join('Results/'+self.Name+'/'+Model, fn))
         else:
             mkdir('Results/'+self.Name+'/'+Model)
-            
-        if Model == "DWPM":
-            Cell_s = (0.3, 0.8)
-            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
-        elif Model == "NRTL":
-            Cell_s = ()
-            alpha = 0.2
-            System = AnalyticSystemsClasses.SystemNRTL(alpha)
-        elif Model == "UNIQUAC":
-            Cell_s = ()
-            z = 10
-            System = AnalyticSystemsClasses.SystemUNIQUAC(self.M, z)
-
-            
+                        
         InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
         InitParamj = append(InitParams, array([-1., -3.]))      
                         
@@ -162,54 +150,44 @@ class Mixture:
 
         return Params
 
-    def PhaseDiagramCalc(self, Model, ModelPhaseInstance, R):
+    def PhaseDiagramCalc(self, Model, System, Params, R, T):
 
-        if Model == "DWPM":
-            Cell_s = (0.3, 0.8)
-            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
-        elif Model == "NRTL":
-            Cell_s = ()
-            alpha = 0.2
-            System = AnalyticSystemsClasses.SystemNRTL(alpha)
-        elif Model == "UNIQUAC":
-            Cell_s = ()
-            z = 10
-            System = AnalyticSystemsClasses.SystemUNIQUAC(self.M, z)
+        CompC = self.vdWaalsInstance.CompC(T)
+        c = [CompC[Compound] for Compound in Compounds]
 
+        if Model == 'DWPM':
+            Params[0] = Params[0]/c[0]
+            Params[1] = Params[1]/c[1]
             
-        InitPhase = array([0.1, 0.9, -1, -4])
+        MaxFEval = 1000
+        TolPhase = 1e-4
+        Converge = 3
+        NStarts = 1
+        MaxNStarts = 10000
+        
+        while (Converge!=1 and NStarts<MaxNStarts):
+            
+            InitPhase = append(array([0.1, -0.1])*random(2)+array([0.0, 1.0]), array([-1., -0.2]))
                         
-        for T in self.M['T']:
-            Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
-            CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
-           
-            MaxFEval = 1000
-            TolPhase = 1e-4
-            Converge = 3
-            NStarts = 1
-            MaxNStarts = 10000
-
-            while (Converge!=1 and NStarts<MaxNStarts):
-                                  
-                      [Phase, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitPhase, (Params, R, T), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
-                      print Mesg
-                      NFCalls = infodict['nfev']
-                      NJCalls = infodict['njev']
-                      NStarts = NStarts + 1
-                      
-                      InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
-                      InitParamj = append(InitParams, array([1., -5.]))  
-                      
-            print NStarts
-            print Paramj
-            InitParamj = Paramj
-
-            Predicted[0] = Phase[0]
-            Predicted[1] = Phase[1]
-            m = Paramj[2]
-            b = Paramj[3]
+            [Phase, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitPhase, (Params, R, T), System.SystemEquationsJac, 1, 0, TolPhase, MaxFEval, None, 0.0, 100, None)
             
+            NFCalls = infodict['nfev']
+            NJCalls = infodict['njev']
+            NStarts = NStarts + 1
+            
+            if (Phase[3]>0.01) or not(0.0 <= Phase[0]<=1.0) or not(0.0 <= Phase[1]<= 1.0):
+                Converge = 3
+                                            
+        print NStarts
+        print Phase
+        InitPhase = Phase
+
+        Predicted1 = Phase[0]
+        Predicted2 = Phase[1]
+        m = Phase[2]
+        b = Phase[3]
+
+        return array([Predicted1, Predicted2])
                                     
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
@@ -237,14 +215,31 @@ for file in listdir(MixtureDataDir):
 
     for i in arange(size(Models)): 
 ##    for i in array([1]): 
+        if Models[i] == "DWPM":
+            Cell_s = (0.3, 0.8)
+            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
+            PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemDWPM(Cell_s)
+        elif Models[i] == "NRTL":
+            Cell_s = ()
+            alpha = 0.2
+            System = AnalyticSystemsClasses.SystemNRTL(alpha)
+            PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemNRTL(alpha)
+        elif Models[i] == "UNIQUAC":
+            Cell_s = ()
+            z = 10
+            System = AnalyticSystemsClasses.SystemUNIQUAC(Optimization.M, z)
+            PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemUNIQUAC(Optimization.M, z)
+
         Name = '-'.join(Compounds)
         print Models[i]
 
-        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R)
+        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R, System)
 
         h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
         PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
         PlotParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
+        PlotActual = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+        
         if Models[i] == "DWPM":
             PlotPureParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
             PlotLambda = PlotParams[:,:2]/PlotPureParams
@@ -254,11 +249,21 @@ for file in listdir(MixtureDataDir):
         fig = matplotlib.pyplot.figure()
         if Models[i] == "DWPM":
             matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro', PlotT, PlotPureParams[:,:1], 'ko', PlotT, PlotPureParams[:,1:2],\
-                                       'ko',PlotT, PlotLambda[:,:1], 'r*', PlotT, PlotLambda[:,1:2], 'r*')
+            'ko',PlotT, PlotLambda[:,:1], 'r*', PlotT, PlotLambda[:,1:2], 'r*')
         else:
             matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro')
 ##        matplotlib.pyplot.ylabel(r'Parameters for '+self.Name.capitalize(), fontsize = 14)
         matplotlib.pyplot.xlabel(r'Temperature', fontsize = 14)
         matplotlib.pyplot.title(r'\textbf{Parameters for '+Optimization.Name.capitalize()+'}', fontsize = 14)
         savefig('Results/'+Name+'/'+Models[i]+'/VariationOfParameters.pdf')
+        matplotlib.pyplot.close()
+
+        Predicted = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([interp(T, PlotT, PlotParams[:,0]), interp(T, PlotT, PlotParams[:,1])]), R, T) for T in PlotT])
+
+        fig = matplotlib.pyplot.figure()
+        matplotlib.pyplot.plot(Predicted[:,:1], PlotT, 'ro', Predicted[:,1:2], PlotT, 'ro', PlotActual[:,:1], PlotT, '-', PlotActual[:,1:2], PlotT, '-')
+        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+        matplotlib.pyplot.xlabel(r'Composition', fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Phase diagram for '+Optimization.Name.capitalize()+'}', fontsize = 14)
+        savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
         matplotlib.pyplot.close()
