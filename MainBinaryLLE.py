@@ -72,20 +72,20 @@ class Mixture:
             ax.text(0,0, 'Model: %s, Params: %.3f, %.3f, %.1f '%(Model, Params[0], Params[1], Converged), fontsize=12, transform=ax.transAxes)
         ax.set_axis_off()
         #show()
-        savefig('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/T_'+str(T) +'.pdf')
+        savefig('Results/'+self.Name+'/'+Model+'/T_'+str(T) +'.pdf')
         matplotlib.pyplot.close()
         
         if not(path.exists('Results/'+self.Name+'/'+ Model)):
             mkdir('Results/'+self.Name+'/'+ Model)
 
-        if not(path.exists('Results/'+self.Name+'/'+ Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+self.Name +'.h5')):
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+self.Name +'.h5', 'w', "Optimization Outputs")
+        if not(path.exists('Results/'+self.Name+'/'+ Model+'/'+self.Name +'.h5')):
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'w', "Optimization Outputs")
             if Model=='DWPM':
                 table = h5file.createTable("/", "Outputs", ResultsFile1, "Optimal model parameters, predicted phase equilibrium, errors etc")
             else:
                 table = h5file.createTable("/", "Outputs", ResultsFile2, "Optimal model parameters, predicted phase equilibrium, errors etc")
         else:
-            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+self.Name +'.h5', 'r+')
+            h5file = tables.openFile('Results/'+self.Name+'/'+Model+'/'+self.Name +'.h5', 'r+')
             table = h5file.root.Outputs
 
         table.row['T'] = T
@@ -152,12 +152,12 @@ class Mixture:
         if not(path.exists('Results/'+self.Name+'/'+ Model)):
             mkdir('Results/'+self.Name+'/'+ Model)
 
-        if path.exists('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')'):
-            fileList = listdir('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')')
+        if path.exists('Results/'+self.Name+'/'+Model+'/'):
+            fileList = listdir('Results/'+self.Name+'/'+Model+'/')
             for fn in fileList: 
-                remove(path.join('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')', fn))
+                remove(path.join('Results/'+self.Name+'/'+Model+'/', fn))
         else:
-            mkdir('Results/'+self.Name+'/'+Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')')
+            mkdir('Results/'+self.Name+'/'+Model+'/')
                         
         InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
         InitParamj = append(InitParams, (-2., 0.)+ (4., -1.)*random(2))
@@ -176,22 +176,16 @@ class Mixture:
             Converge = 3
             NStarts = 1
             MaxNStarts = 20000
-            Scale = [1, 1, 1, 1]
             
             while (Converge!=1 and NStarts<MaxNStarts):
-
-                InitParamk = InitParamj/Scale
-                ##PlaceInitParamj = InitParamj
-                                                                          
-                [Paramk, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamk, (Actual, R, T, Scale), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                                                           
+                [Paramj, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamj, (Actual, R, T), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
                 ## print Mesg
                 NFCalls = infodict['nfev']
                 NJCalls = infodict['njev']
                 NStarts = NStarts + 1
-
-                Paramj = Paramk*Scale
-                                                   
-                if (Paramj[3]>0.01) or (Paramj[0]<Bounds[0])or (Paramj[1]<Bounds[0]): 
+                                                  
+                if (Paramj[3]>0.01) or not(Bounds[0]<Paramj[0]<Bounds[1]) or not(Bounds[0]<Paramj[1]<Bounds[1]): 
                     Converge = 3
                     
                 InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
@@ -278,7 +272,7 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = ((0.00, 100), (-1000, 3000), (-800, 3000))
+Bounds = ((0.00, 2000), (-1000, 3000), (-800, 3000))
 InitParamsLimit =((0.00, 0.15), (-100., 1000.), (-800., 3000.))
 alpha = 0.2
 z = 10
@@ -299,35 +293,12 @@ for file in listdir(MixtureDataDir):
         mkdir('Results/'+Optimization.Name)
     Name = '-'.join(Compounds)
 
-##    for i in arange(size(Models)): 
-    for i in array([0]): 
+    for i in arange(size(Models)): 
+##    for i in array([0]): 
         if Models[i] == "DWPM":
-            #InitCell_s = array([0.5, 0.5])
-            s = arange(0.1, 1.0, 0.1)
-            Z = array([Optimization.OverallSOpt(array([s1, s2]), Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R) for s1 in s for s2 in s])
-            plotZ = transpose(reshape(Z, (size(s), -1)))
-            s_1, s_2 = meshgrid(s, s)
-            
-            fig1 = matplotlib.pyplot.figure()
-            ax1 = Axes3D(fig1)
-            ax1.plot_wireframe(s_1, s_2, plotZ, rstride=1, cstride=1) 
-            fig1.savefig('Results/'+Name+'/'+Models[i]+'/SumStdVarOfParametersWireframe.png')
-            matplotlib.pyplot.close()
-           # fig2 = matplotlib.pyplot.figure()
-           # ax2 = Axes3D(fig2)
-           # ax2.plot_surface(s_1, s_2, plotZ, rstride=1, cstride=1, cmap = matplotlib.pyplot.cm.jet, linewidth=0, antialiased=True)
-           # fig2.savefig('Results/'+Name+'/'+Models[i]+'/SumStdVarOfParametersSurface.png')
-           # matplotlib.pyplot.close()
-
-            h5file = tables.openFile('Results/'+Name+'/'+Models[i]+'/Cell_sPlotData.h5', mode = 'w', title = '3D Plot Data')
-            h5file.createArray('/', 'xData', s_1, 'Variation in s parameter of cell 1')
-            h5file.createArray('/', 'yData', s_2, 'Variation in s parameter of cell 2')
-            h5file.createArray('/', 'zData', plotZ, 'Standard variation in binary parameters over T range')
-            h5file.close()
-
-            #Cell_s = scipy.optimize.fmin(Optimization.OverallSOpt, InitCell_s,(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R), xtol=0.01, ftol=0.001, maxiter=None, maxfun=None, full_output=0, disp=1, retall=0, callback=None)
-            #System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
-            #PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemDWPM(Cell_s)
+            Cell_s = (0.4, 0.6)
+            System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
+            PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemDWPM(Cell_s)
         elif Models[i] == "NRTL":
             System = AnalyticSystemsClasses.SystemNRTL(alpha)
             PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemNRTL(alpha)
@@ -337,43 +308,50 @@ for file in listdir(MixtureDataDir):
 
         print Models[i]
 
-        #Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R, System, Cell_s)
+        Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R, System, Cell_s)
         
-        #h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
-        #PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
-        #PlotParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
-        #PlotActual = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
+        h5file = tables.openFile('Results/'+Name+'/'+ Models[i]+'/'+ Name +'.h5', 'r')
+        PlotT = array([row['T'] for row in h5file.root.Outputs.iterrows()])
+        PlotParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
+        PlotActual = array([row['Actual'] for row in h5file.root.Outputs.iterrows()])
         
-        #if Models[i] == "DWPM":
-        #    PlotPureParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
-        #    PlotLambda = PlotParams[:,:2]/PlotPureParams
-        #h5file.close()
+        if Models[i] == "DWPM":
+            PlotPureParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
+            PlotLambda = PlotParams[:,:2]/PlotPureParams
+        h5file.close()
 
-        #matplotlib.rc('text', usetex = True)
-        #fig = matplotlib.pyplot.figure()
-        #if Models[i] == "DWPM":
-        #    matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro', PlotT, PlotPureParams[:,:1], 'ko', PlotT, PlotPureParams[:,1:2],\
-        #    'ko',PlotT, PlotLambda[:,:1], 'r*', PlotT, PlotLambda[:,1:2], 'r*')
-        #else:
-        #    matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro')
-##      #  matplotlib.pyplot.ylabel(r'Parameters for '+self.Name.capitalize(), fontsize = 14)
-        #matplotlib.pyplot.xlabel(r'Temperature', fontsize = 14)
-        #matplotlib.pyplot.title(r'\textbf{Parameters for '+Optimization.Name.capitalize()+'}', fontsize = 14)
-        #savefig('Results/'+Name+'/'+Models[i]+'/VariationOfParameters.pdf')
-        #matplotlib.pyplot.close()
+        matplotlib.rc('text', usetex = True)
+        fig = matplotlib.pyplot.figure()
+        if Models[i] == "DWPM":
+            p1 = matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'bo')
+            p2 = matplotlib.pyplot.plot(PlotT, PlotParams[:,1:2],'ro')
+            p3 = matplotlib.pyplot.plot(PlotT, PlotPureParams[:,:1], 'k-')
+            p4 = matplotlib.pyplot.plot(PlotT, PlotPureParams[:,1:2], 'k--')
+            p5 = matplotlib.pyplot.plot(PlotT, PlotLambda[:,:1], 'ko')
+            p6 = matplotlib.pyplot.plot(PlotT, PlotLambda[:,1:2], 'ko')
 
-        #LinearParams1 = scipy.interpolate.interp1d(PlotT, PlotParams[:,0])
-        #LinearParams2 = scipy.interpolate.interp1d(PlotT, PlotParams[:,1])
+            matplotlib.pyplot.legend([p1, p2, p3, p4, p5],[r'$c_{12}$', r'$c_{21}$', r'$c_{11}$', r'$c_{22}$', r'$\Lambda_{ij}$'], bbox_to_anchor=(0, 0, 1, 1))
+            
+        else:
+            matplotlib.pyplot.plot(PlotT, PlotParams[:,:1],'ro', PlotT, PlotParams[:,1:2],'ro')
+##        matplotlib.pyplot.ylabel(r'Parameters for '+self.Name.capitalize(), fontsize = 14)
+        matplotlib.pyplot.xlabel(r'Temperature', fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Parameters for '+Optimization.Name.capitalize()+'}', fontsize = 14)
+        fig.savefig('Results/'+Name+'/'+Models[i]+'/VariationOfParameters.pdf')
+        matplotlib.pyplot.close()
+
+        LinearParams1 = scipy.interpolate.interp1d(PlotT, PlotParams[:,0])
+        LinearParams2 = scipy.interpolate.interp1d(PlotT, PlotParams[:,1])
         
-        #InterpT = linspace(PlotT[0], PlotT[-1], 10)
-        #PredictedLinear = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([LinearParams1(T), LinearParams2(T)]), R, T) for T in InterpT])
+        InterpT = linspace(PlotT[0], PlotT[-1], 10)
+        PredictedLinear = array([Optimization.PhaseDiagramCalc(Models[i], PhaseSystem, array([LinearParams1(T), LinearParams2(T)]), R, T) for T in InterpT])
       
-        #fig = matplotlib.pyplot.figure()
-        #matplotlib.pyplot.plot(PredictedLinear[:,:1], InterpT, 'r--', PredictedLinear[:,1:2], InterpT, 'r--', PlotActual[:,:1], PlotT, 'ko', PlotActual[:,1:2], PlotT, 'ko')
-        #matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
-        #matplotlib.pyplot.xlabel(r'Composition', fontsize = 14)
-        #matplotlib.pyplot.title(r'\textbf{Phase diagram for '+Optimization.Name.capitalize()+'}', fontsize = 14)
-        #savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
-        #matplotlib.pyplot.close()
+        fig = matplotlib.pyplot.figure()
+        matplotlib.pyplot.plot(PredictedLinear[:,:1], InterpT, 'r--', PredictedLinear[:,1:2], InterpT, 'r--', PlotActual[:,:1], PlotT, 'ko', PlotActual[:,1:2], PlotT, 'ko')
+        matplotlib.pyplot.ylabel(r'Temperature', fontsize = 14)
+        matplotlib.pyplot.xlabel(r'Composition', fontsize = 14)
+        matplotlib.pyplot.title(r'\textbf{Phase diagram for '+Optimization.Name.capitalize()+'}', fontsize = 14)
+        fig.savefig('Results/'+Name+'/'+Models[i]+'/PhaseDiagram.pdf')
+        matplotlib.pyplot.close()
 
-    #Optimization.ModelsPlotter(Models, ModelInstances, Cell_s, alpha, z)
+    Optimization.ModelsPlotter(Models, ModelInstances, Cell_s, alpha, z)
