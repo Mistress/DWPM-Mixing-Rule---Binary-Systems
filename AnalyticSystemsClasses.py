@@ -8,8 +8,10 @@ class SystemDWPM:
         self.s_1 = Cell_s[0]
         self.s_2 = Cell_s[1]
 
-    def SystemEquations(self, Params, Actual, R, T):
-        
+    def SystemEquations(self, ScaledParams, Actual, R, T, Scale):
+
+        Params = ScaledParams*Scale
+     
         lambda_12 = Params[0]
         lambda_21 = Params[1]
         m = Params[2]
@@ -29,7 +31,9 @@ class SystemDWPM:
 
         return array([Eq1, Eq2, Eq3, Eq4])
 
-    def SystemEquationsJac(self, Params, Actual, R, T):
+    def SystemEquationsJac(self, ScaledParams, Actual, R, T, Scale):
+
+        Params = ScaledParams*Scale
         
         lambda_12 = Params[0]
         lambda_21 = Params[1]
