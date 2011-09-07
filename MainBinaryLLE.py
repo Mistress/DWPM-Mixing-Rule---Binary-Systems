@@ -23,6 +23,7 @@ class ResultsFile1(tables.IsDescription):
     Actual = tables.Float64Col(shape = (2))
     PureCompParams = tables.Float64Col(shape = (2))
     Converged = tables.Float64Col(shape = (1))
+    Constants = tables.Float64Col(shape = (2))
 
 class ResultsFile2(tables.IsDescription):
     T = tables.Float64Col()
@@ -53,7 +54,7 @@ class Mixture:
         h5file.close()
         self.Binaries = zeros((size(self.M['T']), 2))
     
-    def Plotter(self, Params, m, b, Cell_s, Model, ModelInstance, Actual, c, T, Converged):
+    def Plotter(self, Params, m, b, Cell_s, Model, ModelInstance, Actual, c, T, Converged, Constants):
        
         deltaGibbsmix = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in arange(0.001, 1, 0.001)])
         ActualPlot = array([ModelInstance.deltaGmix(x, T, c, self.M) for x in Actual])
@@ -93,6 +94,8 @@ class Mixture:
         table.row['Actual'] = Actual
         if Model=='DWPM':
             table.row['PureCompParams']  = reshape(array(c),-1)
+            table.row['Constants']  = Constants
+            
         table.row['Converged'] = Converged
         table.row.append()
         table.flush()
@@ -165,51 +168,48 @@ class Mixture:
         for T in self.M['T']:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
-            c = [CompC[Compound] for Compound in Compounds]
+            c = reshape(array([CompC[Compound] for Compound in Compounds]), -1)
 
-            if Model == "DWPM":
-                InitParamj[0] = InitParamj[0]/c[0]
-                InitParamj[1] = InitParamj[1]/c[1]
-                           
+            PureParamsProduct = float((c[0]*c[1])**(0.5))
+                                          
             MaxFEval = 1000
             TolParam = 1e-6
             Converge = 3
             NStarts = 1
-            MaxNStarts = 20000
+            MaxNStarts = 10000
             Scale = [1, 1, 1, 1]
             
             while (Converge!=1 and NStarts<MaxNStarts):
 
                 InitParamk = InitParamj/Scale
-                ##PlaceInitParamj = InitParamj
-                                                                          
-                [Paramk, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamk, (Actual, R, T, Scale), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
-                ## print Mesg
+                                                                                         
+                [Paramk, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamk, (Actual, R, T, c, PureParamsProduct), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                
                 NFCalls = infodict['nfev']
                 NJCalls = infodict['njev']
                 NStarts = NStarts + 1
 
                 Paramj = Paramk*Scale
                                                    
-                if (Paramj[3]>0.01) or (Paramj[0]<Bounds[0])or (Paramj[1]<Bounds[0]): 
+                if (Paramj[3]>0.01): #or (Paramj[0]<Bounds[0])or (Paramj[1]<Bounds[0]): 
                     Converge = 3
                     
                 InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
                 InitParamj = append(InitParams, (-2., 0.)+ (4., -1.)*random(2))
                                                             
             print Mesg
-            ##print NStarts
-            ##InitParamj = PlaceInitParamj
-                                        
+            print Paramj[:2]
+                                                   
             m = Paramj[2]
             b = Paramj[3]
         
             if Model == "DWPM":
-                Params1 = Paramj[0]*c[0]
-                Params2 = Paramj[1]*c[1]
+                Params1 = Paramj[0]*PureParamsProduct
+                Params2 = Paramj[1]*PureParamsProduct
+                Constants = Paramj[:2]
                 Params = reshape(array([Params1, Params2]), -1)
                 ParamInstance = ModelInstance(append(Params, Cell_s))
-                self.Plotter(Params, m, b, Cell_s, Model, ParamInstance, Actual, c, T, Converge)
+                self.Plotter(Params, m, b, Cell_s, Model, ParamInstance, Actual, c, T, Converge, Constants)
             else:
                 Params = Paramj[:2]
                 ParamInstance = ModelInstance(Params)
@@ -262,24 +262,26 @@ class Mixture:
         self.ParamCalc(Model, ModelInstance, InitParamsLimit, Bounds, R, System, Cell_s)
         
         h5file = tables.openFile('Results/'+self.Name+'/'+ Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+ self.Name +'.h5', 'r')
-        DWPMParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
+        DWPMConstants = array([row['Constants'] for row in h5file.root.Outputs.iterrows()])
         Convergence = [row['Converged'] for row in h5file.root.Outputs.iterrows()]
         Test = [x==1 for x in Convergence]
         h5file.close()
-        
+
         if all(Test):
-            return sum(abs(std(DWPMParams[:,0])), abs(std(DWPMParams[:,1])))
+            StdVar = array([std(DWPMConstants[:,0]), std(DWPMConstants[:,1])])
+            Average = array([average(DWPMConstants[:,0]), average(DWPMConstants[:,1])])
+            ScaledSV = sum(abs(StdVar/Average))
+            return (ScaledSV)
         else:
             return NaN
-        #return (DWPMParams[:,0],DWPMParams[:,1])
-                                   
+                                           
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
 Bounds = ((0.00, 100), (-1000, 3000), (-800, 3000))
-InitParamsLimit =((0.00, 0.15), (-100., 1000.), (-800., 3000.))
+InitParamsLimit =((-50.00, 50.00), (-100., 1000.), (-800., 3000.))
 alpha = 0.2
 z = 10
 R = 8.314
