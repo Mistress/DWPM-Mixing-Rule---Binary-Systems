@@ -44,11 +44,15 @@ class Mixture:
         h5file = tables.openFile('Results/'+self.Name+'/'+ Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+ self.Name +'.h5', 'r')
         DWPMParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
         Convergence = [row['Converged'] for row in h5file.root.Outputs.iterrows()]
+        PureCompParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
         Test = [x==1 for x in Convergence]
         h5file.close()
         
+        ExpoTerms = (PureCompParams[:,0]*PureCompParams[:,1])**0.5
+        Constants = array([DWPMParams[:,0]/ExpoTerms, DWPMParams[:,1]/ExpoTerms])
+                
         if all(Test):
-            ScaledSV = [std(DWPMParams[:,0])/average(DWPMParams[:,0]), std(DWPMParams[:,1])/average(DWPMParams[:,1])]
+            ScaledSV = [std(Constants[0,:])/average(Constants[0,:]), std(Constants[1,:])/average(Constants[1,:])]
             return (ScaledSV)
         else:
             return (NaN,NaN)

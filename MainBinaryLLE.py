@@ -262,19 +262,18 @@ class Mixture:
         self.ParamCalc(Model, ModelInstance, InitParamsLimit, Bounds, R, System, Cell_s)
         
         h5file = tables.openFile('Results/'+self.Name+'/'+ Model+'/Cells('+str(Cell_s[0])+','+str(Cell_s[1])+')/'+ self.Name +'.h5', 'r')
-        DWPMConstants = array([row['Constants'] for row in h5file.root.Outputs.iterrows()])
+        DWPMParams = array([row['Constants'] for row in h5file.root.Outputs.iterrows()])
         Convergence = [row['Converged'] for row in h5file.root.Outputs.iterrows()]
         Test = [x==1 for x in Convergence]
         h5file.close()
 
         if all(Test):
-            StdVar = array([std(DWPMConstants[:,0]), std(DWPMConstants[:,1])])
-            Average = array([average(DWPMConstants[:,0]), average(DWPMConstants[:,1])])
-            ScaledSV = sum(abs(StdVar/Average))
+            ScaledSV = [std(DWPMParams[:,0])/average(DWPMParams[:,0]), std(DWPMParams[:,1])/average(DWPMParams[:,1])]
             return (ScaledSV)
         else:
-            return NaN
-                                           
+            return (NaN,NaN)
+ 
+                                        
 ##=============================================================##
 Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
