@@ -36,6 +36,7 @@ class Mixture:
     def __init__(self, Compounds, MixtureDataDir, PureDataDir):
         
         MixtureName = Compounds[0]
+                  
         self.Compounds = Compounds
         self.Data =dict((Compound, {}) for Compound in Compounds)
         for Compound in Compounds:
@@ -161,6 +162,8 @@ class Mixture:
                 remove(path.join('Results/'+self.Name+'/'+Model+'/', fn))
         else:
             mkdir('Results/'+self.Name+'/'+Model+'/')
+
+        Tc = reshape(array([self.Data[Compound]['Tc'] for Compound in self.Compounds]), -1)
                         
         InitParams = (InitParamsLimit[1]-InitParamsLimit[0])*random(2) + append(InitParamsLimit[0], InitParamsLimit[0])
         InitParamj = append(InitParams, (-2., 0.)+ (4., -1.)*random(2))
@@ -169,21 +172,19 @@ class Mixture:
             Actual =  array([interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][0])),interp(T,cast['f'](self.M['T']), cast['f'](self.M['ExpComp'][1]))])
             CompC = self.vdWaalsInstance.CompC(T)
             c = reshape(array([CompC[Compound] for Compound in Compounds]), -1)
-
-            PureParamsProduct = float((c[0]*c[1])**(0.5))
                                           
-            MaxFEval = 1000
-            TolParam = 1e-6
+            MaxFEval = 10000
+            TolParam = 1e-5
             Converge = 3
             NStarts = 1
-            MaxNStarts = 10000
+            MaxNStarts = 20000
             Scale = [1, 1, 1, 1]
             
             while (Converge!=1 and NStarts<MaxNStarts):
-
+                
                 InitParamk = InitParamj/Scale
                                                                                          
-                [Paramk, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamk, (Actual, R, T, c, PureParamsProduct), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
+                [Paramk, infodict, Converge, Mesg] = scipy.optimize.fsolve(System.SystemEquations, InitParamk, (Actual, R, T, c, Tc), System.SystemEquationsJac, 1, 0, TolParam, MaxFEval, None, 0.0, 100, None)
                 
                 NFCalls = infodict['nfev']
                 NJCalls = infodict['njev']
@@ -201,8 +202,8 @@ class Mixture:
             b = Paramj[3]
         
             if Model == "DWPM":
-                Params1 = Paramj[0]*PureParamsProduct
-                Params2 = Paramj[1]*PureParamsProduct
+                Params1 = -1*exp(Paramj[0]*(1-(T/Tc[0])))
+                Params2 = -1*exp(Paramj[1]*(1-(T/Tc[1])))
                 Constants = Paramj[:2]
                 Params = reshape(array([Params1, Params2]), -1)
                 ParamInstance = ModelInstance(append(Params, Cell_s))
@@ -218,10 +219,9 @@ class Mixture:
         CompC = self.vdWaalsInstance.CompC(T)
         c = [CompC[Compound] for Compound in Compounds]
 
-        ExpoTerm = (c[0]*c[1])**0.5
-        Params = ExpoTerm*Constants
-        print Params
-        
+        Tc = reshape(array([self.Data[Compound]['Tc'] for Compound in self.Compounds]), -1)
+        Params =-1*exp(Constants*(1-(T/Tc)))              
+       
         if Model == 'DWPM':
             Params1 = Params[0]/c[0]
             Params2 = Params[1]/c[1]
@@ -276,8 +276,8 @@ Models = ('DWPM', 'NRTL', 'UNIQUAC')
 ModelInstances = (GibbsClasses.DWPM, GibbsClasses.NRTL, GibbsClasses.UNIQUAC)
 MixtureDataDir = 'Data/Mixtures'
 PureDataDir = 'Data/PureComps'
-Bounds = ((0.00, 100), (-1000, 3000), (-800, 3000))
-InitParamsLimit =((-50.00, 50.00), (-100., 1000.), (-800., 3000.))
+Bounds = ((-100., 100), (-1000, 3000), (-800, 3000))
+InitParamsLimit =((-100.0, 100.0), (-100., 300.), (-800., 3000.))
 alpha = 0.2
 z = 10
 R = 8.314
@@ -301,11 +301,16 @@ for file in listdir(MixtureDataDir):
 
 ##    for i in arange(size(Models)): 
     for i in array([0]): 
+
+        print Models[i]
+
         if Models[i] == "DWPM":
-            InitCell_s = array([0.3, 0.8]) 
-                      
-            Cell_s = scipy.optimize.fmin(Optimization.OverallSOpt, InitCell_s,(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R), xtol=0.01, ftol=0.001, maxiter=None, maxfun=None, full_output=0, disp=1, retall=0, callback=None)
-            
+
+            InitCell_s = array([0.8, 0.8]) 
+            #[Cell_s, SumStd, Dict] = scipy.optimize.fmin_l_bfgs_b(Optimization.OverallSOpt, InitCell_s, fprime=None, args=(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R), approx_grad=1, bounds=[(0.01, 0.9),(0.1, 0.9)], m=10, factr=1e6)
+
+            [Cell_s, SumStd, Grid, Jout] = scipy.optimize.brute(Optimization.OverallSOpt, [(0.1, 0.95),(0.1, 0.95)],(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R), 20, 1, 0.001)
+                        
             System = AnalyticSystemsClasses.SystemDWPM(Cell_s)
             PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemDWPM(Cell_s)
         
@@ -316,8 +321,6 @@ for file in listdir(MixtureDataDir):
         elif Models[i] == "UNIQUAC":
             System = AnalyticSystemsClasses.SystemUNIQUAC(Optimization.M, z)
             PhaseSystem = AnalyticPhaseCompSystemsClasses.SystemUNIQUAC(Optimization.M, z)
-
-        print Models[i]
 
         Optimization.ParamCalc(Models[i], ModelInstances[i], InitParamsLimit[i], Bounds[i], R, System, Cell_s)
         
@@ -347,7 +350,7 @@ for file in listdir(MixtureDataDir):
         #LinearParams1 = scipy.interpolate.interp1d(PlotT, PlotParams[:,0])
         #LinearParams2 = scipy.interpolate.interp1d(PlotT, PlotParams[:,1])
 
-        ## Average Params according to lowest relative standard variation of k1 and k2 in ki(c11*c22)^0.5:
+        ## Average Params according to lowest relative standard variation of m1 and m2 in ki(c11*c22)^0.5:
        
         Constant1 = average(PlotConstants[:,0])
         Constant2 = average(PlotConstants[:,1])

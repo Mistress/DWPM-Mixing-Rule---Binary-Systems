@@ -8,10 +8,12 @@ class SystemDWPM:
         self.s_1 = Cell_s[0]
         self.s_2 = Cell_s[1]
 
-    def SystemEquations(self, Params, Actual, R, T, c, PureParamsProduct):
+    def SystemEquations(self, Params, Actual, R, T, c, Tc):
            
-        lambda_12 = Params[0]*PureParamsProduct/c[0]
-        lambda_21 = Params[1]*PureParamsProduct/c[1]
+        Adachi = -1*exp(Params[:2]*(1-(T/Tc)))
+       
+        lambda_12 = Adachi[0]/c[0]
+        lambda_21 = Adachi[1]/c[1]
         m = Params[2]
         b = Params[3]
        
@@ -29,10 +31,12 @@ class SystemDWPM:
 
         return array([Eq1, Eq2, Eq3, Eq4])
 
-    def SystemEquationsJac(self, Params, Actual, R, T, c, PureParamsProduct):
+    def SystemEquationsJac(self, Params, Actual, R, T, c, Tc):
+
+        Adachi = -1*exp(Params[:2]*(1-(T/Tc)))
         
-        lambda_12 = Params[0]*PureParamsProduct/c[0]
-        lambda_21 = Params[1]*PureParamsProduct/c[1]
+        lambda_12 = Adachi[0]/c[0]
+        lambda_21 = Adachi[1]/c[1]
         m = Params[2]
         b = Params[3]
         

@@ -45,11 +45,15 @@ class Mixture:
         DWPMParams = array([row['ModelParams'] for row in h5file.root.Outputs.iterrows()])
         Convergence = [row['Converged'] for row in h5file.root.Outputs.iterrows()]
         PureCompParams = array([row['PureCompParams'] for row in h5file.root.Outputs.iterrows()])
+        Temps = array([row['T'] for row in h5file.root.Outputs.iterrows()])
         Test = [x==1 for x in Convergence]
         h5file.close()
         
-        ExpoTerms = (PureCompParams[:,0]*PureCompParams[:,1])**0.5
-        Constants = array([DWPMParams[:,0]/ExpoTerms, DWPMParams[:,1]/ExpoTerms])
+        Tc = reshape(array([self.Data[Compound]['Tc'] for Compound in self.Compounds]), -1)
+       
+        TrTerms = array([Temps/Tc[0], Temps/Tc[1]])
+               
+        Constants = array([log(-1*DWPMParams[:,0])/(1-TrTerms[0,:]),log(-1*DWPMParams[:,1])/(1-TrTerms[1,:])])
                 
         if all(Test):
             ScaledSV = [std(Constants[0,:])/average(Constants[0,:]), std(Constants[1,:])/average(Constants[1,:])]
@@ -89,11 +93,11 @@ for file in listdir(MixtureDataDir):
     subfigures = fig.add_subplot(1, 2, 1).get_position()
     ax = Axes3D(fig, subfigures)
     ax.plot_wireframe(s_1, s_2, plotZ1, rstride=1, cstride=1) 
-    matplotlib.pyplot.title(r"Variation of $k_{1}$", fontsize=14) 
+    matplotlib.pyplot.title(r"Relative Variation of $m_{1}$", fontsize=14) 
     subfigures = fig.add_subplot(1, 2, 2).get_position()
     ax = Axes3D(fig, subfigures)
     ax.plot_wireframe(s_1, s_2, plotZ2, rstride=1, cstride=1) 
-    matplotlib.pyplot.title(r"Variation of $k_{2}$", fontsize=14) 
+    matplotlib.pyplot.title(r"Relative Variation of $m_{2}$", fontsize=14) 
     fig.savefig('Results/'+Name+'/'+Model+'/StdVarOfParametersWireframe.png')
     matplotlib.pyplot.close()
 
@@ -101,7 +105,7 @@ for file in listdir(MixtureDataDir):
     ax = Axes3D(fig2)
     plotTotalZ = plotZ1 + plotZ2
     ax.plot_wireframe(s_1, s_2, plotTotalZ, rstride=1, cstride=1) 
-    matplotlib.pyplot.title(r"Sum of Variations of $k_{1}$ and $k_{2}$ ", fontsize=14) 
+    matplotlib.pyplot.title(r"Sum of Variations of $m_{1}$ and $m_{2}$ ", fontsize=14) 
     fig2.savefig('Results/'+Name+'/'+Model+'/SumStdVarOfParametersWireframe.png')
     matplotlib.pyplot.close()
     
